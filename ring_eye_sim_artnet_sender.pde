@@ -1,22 +1,27 @@
 // =============================================================
 // Ring Eye Sim — Art-Net Sender
-// Phase 2: video transform via keyboard
+// Phase 3: ring grid overlay (visual only, N=12 hardcoded)
 // =============================================================
 // See contexts/02_build_plan.md for full phase plan.
 //
-// Phase 2 scope:
-//   - SPACE              toggle play/pause (resume via .loop(), not .play())
-//   - ←/→                move video x  ±2 px
-//   - ↑/↓                move video y  ±2 px
-//   - Shift+←/→          move video x  ±20 px
-//   - Shift+↑/↓          move video y  ±20 px
-//   - Cmd+↑              scale × 1.05
-//   - Cmd+↓              scale ÷ 1.05
-//   - R                  reset transform (centered + fit-to-canvas)
-//   - BACKSPACE          clear loaded video (from phase 1)
+// Phase 3 adds (on top of phase 2):
+//   - RingGrid overlay drawn after the video, before the UI region
+//   - G key toggles grid on/off
+//   - L key toggles labels on/off
+//   - N is hardcoded to 12 (the slider comes in phase 4)
 //
-// Uses void keyPressed(KeyEvent event) so we can access isMetaDown() /
-// isShiftDown() reliably across renderers.
+// Hotkeys (cumulative):
+//   SPACE                toggle play/pause
+//   ←/→                  move video x  ±2 px
+//   ↑/↓                  move video y  ±2 px
+//   Shift+←/→            move video x  ±20 px
+//   Shift+↑/↓            move video y  ±20 px
+//   Cmd+↑                scale × 1.05
+//   Cmd+↓                scale ÷ 1.05
+//   R                    reset transform (centered + fit)
+//   G                    toggle ring grid
+//   L                    toggle cell labels
+//   BACKSPACE            clear loaded video
 // =============================================================
 
 // Drop library for file drag-and-drop
@@ -54,6 +59,7 @@ final float SCALE_STEP      = 1.05;  // 5% per press
 
 Canvas        canvas;
 MediaHandler  mediaHandler;
+RingGrid      ringGrid;
 SDrop         drop;
 
 // =============================================================
@@ -81,14 +87,16 @@ void setup() {
 
   canvas       = new Canvas(0, 0, CANVAS_W, CANVAS_H);
   mediaHandler = new MediaHandler(this, canvas);
+  ringGrid     = new RingGrid(canvas);
   drop         = new SDrop(this);
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", ui region: " + UI_H + "px below");
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D" : "default (Java2D)"));
+  log("[setup] ring: N=" + ringGrid.N + ", R=" + RingGrid.RING_R + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] drag a video (.mp4 / .mov / .avi / .webm) onto the canvas to begin");
   log("[setup] keys: SPACE pause/play, arrows move (Shift = 10x), Cmd+UP/DOWN scale,");
-  log("[setup]       R reset transform, BACKSPACE clears video");
+  log("[setup]       R reset, G toggle grid, L toggle labels, BACKSPACE clears");
 }
 
 void draw() {
@@ -113,7 +121,10 @@ void draw() {
     }
   }
 
-  // UI region — empty for phase 2, just a slightly lighter background
+  // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
+  ringGrid.drawOverlay();
+
+  // UI region — empty for phase 3, just a slightly lighter background
   fill(25);
   noStroke();
   rect(0, CANVAS_H, SKETCH_W, UI_H);
@@ -136,7 +147,6 @@ void draw() {
 // =============================================================
 
 void dropEvent(DropEvent event) {
-  // Unconditional log so we can verify dropEvent actually fires.
   log("[drop] event received: isFile=" + event.isFile()
         + ", isImage=" + event.isImage()
         + ", isURL=" + event.isURL()
@@ -159,7 +169,7 @@ void dropEvent(DropEvent event) {
 }
 
 // =============================================================
-// Keys (phase 2) — uses KeyEvent so we can access isMetaDown()/isShiftDown()
+// Keys — uses KeyEvent so we can access isMetaDown()/isShiftDown()
 // reliably across renderers and operating systems.
 // =============================================================
 
@@ -178,11 +188,16 @@ void keyPressed(KeyEvent event) {
     mediaHandler.resetTransform();
     return;  // resetTransform() logs its own confirmation
   }
+  if (key == 'g' || key == 'G') {
+    ringGrid.toggleGrid();
+    return;
+  }
+  if (key == 'l' || key == 'L') {
+    ringGrid.toggleLabels();
+    return;
+  }
 
   // ----- arrow / Cmd+arrow combos -----
-  // Processing's `key == CODED` indicates a non-printable key. Arrows are
-  // always coded in normal operation. We still use the event for modifiers
-  // (more reliable than the global `keyCode` per Processing's own docs).
   if (key == CODED) {
     int     kc    = event.getKeyCode();
     boolean shift = event.isShiftDown();
@@ -205,7 +220,7 @@ void keyPressed(KeyEvent event) {
 }
 
 // =============================================================
-// Logging — phase 2 still routes to console only; UI textarea in phase 4
+// Logging — still routes to console only; UI textarea in phase 4
 // =============================================================
 
 void log(String message) {
