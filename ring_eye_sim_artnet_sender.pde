@@ -1,13 +1,22 @@
 // =============================================================
 // Ring Eye Sim — Art-Net Sender
-// Phase 1: skeleton + video drag-and-drop
+// Phase 2: video transform via keyboard
 // =============================================================
 // See contexts/02_build_plan.md for full phase plan.
-// Phase 1 scope:
-//   - 1024×1224 sketch (1024×1024 canvas + 200px UI region, UI empty for now)
-//   - Drag-and-drop video file into canvas → auto-fit-centered playback
-//   - Backspace clears the loaded video
-//   - log() routes to Processing console only (UI textarea comes in phase 4)
+//
+// Phase 2 scope:
+//   - SPACE              toggle play/pause (resume via .loop(), not .play())
+//   - ←/→                move video x  ±2 px
+//   - ↑/↓                move video y  ±2 px
+//   - Shift+←/→          move video x  ±20 px
+//   - Shift+↑/↓          move video y  ±20 px
+//   - Cmd+↑              scale × 1.05
+//   - Cmd+↓              scale ÷ 1.05
+//   - R                  reset transform (centered + fit-to-canvas)
+//   - BACKSPACE          clear loaded video (from phase 1)
+//
+// Uses void keyPressed(KeyEvent event) so we can access isMetaDown() /
+// isShiftDown() reliably across renderers.
 // =============================================================
 
 // Drop library for file drag-and-drop
@@ -15,6 +24,9 @@ import drop.*;
 
 // Video library
 import processing.video.*;
+
+// Processing's KeyEvent (NOT java.awt.event.KeyEvent — different class)
+import processing.event.KeyEvent;
 
 // =============================================================
 // Constants
@@ -27,12 +39,14 @@ final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
 // Rendering mode.
-// IMPORTANT: SDrop drag-and-drop is broken under P3D in Processing 3.x/4.x
-// (P3D uses a JOGL GLWindow which doesn't expose AWT drag-and-drop).
-// Keep this false so dropEvent() actually fires. If we ever need P3D for
-// performance reasons we'll have to add a GUI file picker fallback.
-// Ref: https://forum.processing.org/two/discussion/17092/
+// IMPORTANT: SDrop drag-and-drop is broken under P3D in Processing 3.x/4.x.
+// See contexts/99_gotchas.md.
 final boolean ENABLE_P3D = false;
+
+// Transform step sizes
+final int   MOVE_STEP_SMALL = 2;
+final int   MOVE_STEP_LARGE = 20;
+final float SCALE_STEP      = 1.05;  // 5% per press
 
 // =============================================================
 // Main objects
@@ -73,7 +87,8 @@ void setup() {
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", ui region: " + UI_H + "px below");
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D" : "default (Java2D)"));
   log("[setup] drag a video (.mp4 / .mov / .avi / .webm) onto the canvas to begin");
-  log("[setup] BACKSPACE clears the loaded video");
+  log("[setup] keys: SPACE pause/play, arrows move (Shift = 10x), Cmd+UP/DOWN scale,");
+  log("[setup]       R reset transform, BACKSPACE clears video");
 }
 
 void draw() {
@@ -89,7 +104,7 @@ void draw() {
   // Poll for a new video frame
   mediaHandler.update();
 
-  // Draw the current video frame at its display bounds
+  // Draw the current video frame at its display bounds (honoring transform)
   if (mediaHandler.hasContent()) {
     PImage frame = mediaHandler.getCurrentFrame();
     if (frame != null) {
@@ -98,7 +113,7 @@ void draw() {
     }
   }
 
-  // UI region — empty for phase 1, just a slightly lighter background
+  // UI region — empty for phase 2, just a slightly lighter background
   fill(25);
   noStroke();
   rect(0, CANVAS_H, SKETCH_W, UI_H);
@@ -122,7 +137,6 @@ void draw() {
 
 void dropEvent(DropEvent event) {
   // Unconditional log so we can verify dropEvent actually fires.
-  // If this line never prints, SDrop is not delivering events (renderer/registration issue).
   log("[drop] event received: isFile=" + event.isFile()
         + ", isImage=" + event.isImage()
         + ", isURL=" + event.isURL()
@@ -145,18 +159,53 @@ void dropEvent(DropEvent event) {
 }
 
 // =============================================================
-// Keys (phase 1: only BACKSPACE)
+// Keys (phase 2) — uses KeyEvent so we can access isMetaDown()/isShiftDown()
+// reliably across renderers and operating systems.
 // =============================================================
 
-void keyPressed() {
+void keyPressed(KeyEvent event) {
+  // ----- non-modifier keys -----
+  if (key == ' ') {
+    mediaHandler.togglePlayPause();
+    return;
+  }
   if (key == BACKSPACE || key == DELETE) {
     mediaHandler.clearMedia();
     log("[key] cleared media");
+    return;
+  }
+  if (key == 'r' || key == 'R') {
+    mediaHandler.resetTransform();
+    return;  // resetTransform() logs its own confirmation
+  }
+
+  // ----- arrow / Cmd+arrow combos -----
+  // Processing's `key == CODED` indicates a non-printable key. Arrows are
+  // always coded in normal operation. We still use the event for modifiers
+  // (more reliable than the global `keyCode` per Processing's own docs).
+  if (key == CODED) {
+    int     kc    = event.getKeyCode();
+    boolean shift = event.isShiftDown();
+    boolean meta  = event.isMetaDown();   // Cmd on macOS
+
+    if (meta && kc == UP) {
+      mediaHandler.scaleBy(SCALE_STEP);
+    } else if (meta && kc == DOWN) {
+      mediaHandler.scaleBy(1.0 / SCALE_STEP);
+    } else if (kc == LEFT) {
+      mediaHandler.moveX(shift ? -MOVE_STEP_LARGE : -MOVE_STEP_SMALL);
+    } else if (kc == RIGHT) {
+      mediaHandler.moveX(shift ?  MOVE_STEP_LARGE :  MOVE_STEP_SMALL);
+    } else if (kc == UP) {
+      mediaHandler.moveY(shift ? -MOVE_STEP_LARGE : -MOVE_STEP_SMALL);
+    } else if (kc == DOWN) {
+      mediaHandler.moveY(shift ?  MOVE_STEP_LARGE :  MOVE_STEP_SMALL);
+    }
   }
 }
 
 // =============================================================
-// Logging — phase 1 routes to console only; phase 4 will also write to UI
+// Logging — phase 2 still routes to console only; UI textarea in phase 4
 // =============================================================
 
 void log(String message) {
