@@ -7,14 +7,18 @@
 //       RING_R   = 350.0  (centerline radius)
 //       cellSize = 2*R*sin(π/N) / (1 + sin(π/N)) * BREATHE
 //       BREATHE  = 0.95
-//   - Cells: solid red rotated radial squares
+//   - Cells: stroked red rotated radial squares (no fill — video shows through)
 //   - Labels: red, positioned OUTSIDE each cell along the ring direction,
 //             not rotated (always upright for readability)
 //   - Guides: dim red dashed centerline circle + center crosshair (~40% alpha)
 //   - LED 0 at 12 o'clock, CW around the ring
 //
+// Performance: cell centers and rotations are PRE-COMPUTED into primitive
+// arrays in precomputeCells(). The draw loop has zero allocations from
+// this class.
+//
 // Future phases:
-//   - phase 4: setN() via ControlP5 slider
+//   - phase 4: setN() via ControlP5 slider — calls precomputeCells() to refresh
 //   - phase 5: sampleColors() + preview circles
 //   - phase 6: writeToDMXBuffer()
 // =============================================================
@@ -30,8 +34,18 @@ class RingGrid {
   boolean gridEnabled   = true;
   boolean labelsEnabled = true;
 
+  // ---- precomputed per-cell geometry (refreshed when N changes) ----
+  float[] cellCx;        // cell center x in sketch coords
+  float[] cellCy;        // cell center y in sketch coords
+  float[] cellRot;       // cell rotation in radians
+  float[] labelCx;       // label center x in sketch coords
+  float[] labelCy;       // label center y in sketch coords
+  float   cachedCellSize;
+  float   cachedTextSize;
+
   RingGrid(Canvas canvas) {
     this.canvas = canvas;
+    precomputeCells();
   }
 
   // -------------------------------------------------------------
@@ -39,21 +53,36 @@ class RingGrid {
   // -------------------------------------------------------------
 
   float cellSize() {
-    float s = sin(PI / N);
-    return 2.0 * RING_R * s / (1.0 + s) * BREATHE;
+    return cachedCellSize;
   }
 
-  // World-space (sketch coords) center of cell i.
-  // LED 0 at 12 o'clock, CW around the ring.
-  PVector cellCenter(int i) {
-    float phi = i * TWO_PI / N;
-    float cx  = canvas.x + canvas.width  / 2.0 + RING_R * sin(phi);
-    float cy  = canvas.y + canvas.height / 2.0 - RING_R * cos(phi);
-    return new PVector(cx, cy);
-  }
+  // Re-fill all the cached arrays. Call after constructing OR after setN().
+  void precomputeCells() {
+    float s        = sin(PI / N);
+    cachedCellSize = 2.0 * RING_R * s / (1.0 + s) * BREATHE;
+    cachedTextSize = constrain(cachedCellSize * 0.2, 8, 20);
+    float labelR   = RING_R + cachedCellSize / 2.0 + cachedTextSize;
 
-  float cellRotation(int i) {
-    return i * TWO_PI / N;
+    cellCx  = new float[N];
+    cellCy  = new float[N];
+    cellRot = new float[N];
+    labelCx = new float[N];
+    labelCy = new float[N];
+
+    float canvasCx = canvas.x + canvas.width  / 2.0;
+    float canvasCy = canvas.y + canvas.height / 2.0;
+
+    for (int i = 0; i < N; i++) {
+      float phi    = i * TWO_PI / N;
+      float sinPhi = sin(phi);
+      float cosPhi = cos(phi);
+
+      cellCx[i]  = canvasCx + RING_R * sinPhi;
+      cellCy[i]  = canvasCy - RING_R * cosPhi;
+      cellRot[i] = phi;
+      labelCx[i] = canvasCx + labelR * sinPhi;
+      labelCy[i] = canvasCy - labelR * cosPhi;
+    }
   }
 
   // -------------------------------------------------------------
@@ -102,20 +131,18 @@ class RingGrid {
     line(cx, cy - crossLen, cx, cy + crossLen);
   }
 
-  // Solid red rotated radial squares (matches Figma cell visual)
+  // Stroked red rotated radial squares — no fill, video shows through
   void drawCells() {
-    fill(255, 0, 0);
-    noStroke();
+    noFill();
+    stroke(255, 0, 0);
+    strokeWeight(2);
     rectMode(CENTER);
 
-    float s = cellSize();
+    float s = cachedCellSize;
     for (int i = 0; i < N; i++) {
-      PVector c   = cellCenter(i);
-      float   phi = cellRotation(i);
-
       pushMatrix();
-      translate(c.x, c.y);
-      rotate(phi);
+      translate(cellCx[i], cellCy[i]);
+      rotate(cellRot[i]);
       rect(0, 0, s, s);
       popMatrix();
     }
@@ -127,18 +154,12 @@ class RingGrid {
   // Always drawn upright (no rotate) for readability.
   void drawLabels() {
     fill(255, 0, 0);
+    noStroke();
     textAlign(CENTER, CENTER);
+    textSize(cachedTextSize);
 
-    float s  = cellSize();
-    float ts = constrain(s * 0.2, 8, 20);
-    textSize(ts);
-
-    float labelOffset = s / 2.0 + ts;  // outside the cell edge, by ~one text-size gap
     for (int i = 0; i < N; i++) {
-      float phi = cellRotation(i);
-      float cx  = canvas.x + canvas.width  / 2.0 + (RING_R + labelOffset) * sin(phi);
-      float cy  = canvas.y + canvas.height / 2.0 - (RING_R + labelOffset) * cos(phi);
-      text(str(i), cx, cy);
+      text(str(i), labelCx[i], labelCy[i]);
     }
   }
 

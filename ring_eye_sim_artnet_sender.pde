@@ -1,16 +1,26 @@
 // =============================================================
 // Ring Eye Sim — Art-Net Sender
-// Phase 3: ring grid overlay (visual only, N=12 hardcoded)
+// Phase 3 (continued): ring grid overlay + P3D switch for performance
 // =============================================================
 // See contexts/02_build_plan.md for full phase plan.
 //
-// Phase 3 adds (on top of phase 2):
-//   - RingGrid overlay drawn after the video, before the UI region
-//   - G key toggles grid on/off
-//   - L key toggles labels on/off
-//   - N is hardcoded to 12 (the slider comes in phase 4)
+// Phase 3 covers (cumulative since phase 1):
+//   - Drag-and-drop video (DISABLED under P3D — see below)
+//   - Keyboard-controlled video transform (move/scale/reset)
+//   - togglePlayPause via SPACE (uses .play() to resume — loop flag persists)
+//   - RingGrid overlay (stroke-only red cells, no fill so video shows through)
+//   - G toggle grid, L toggle labels
+//   - N hardcoded to 12 (slider lands in phase 4)
+//   - frameRate diagnostic every ~2s
+//
+// Performance note (Phase 3 patch, post-test):
+//   Java2D rendering of 1024×1024 video runs at ~8 fps on this machine.
+//   P3D (GPU-accelerated) handles it at ~30 fps. So we switch back to P3D
+//   and accept the loss of drag-drop, replacing it with a file picker on
+//   the 'O' key. See contexts/99_gotchas.md.
 //
 // Hotkeys (cumulative):
+//   O                    open file picker (use this under P3D — drag-drop dead)
 //   SPACE                toggle play/pause
 //   ←/→                  move video x  ±2 px
 //   ↑/↓                  move video y  ±2 px
@@ -44,9 +54,10 @@ final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
 // Rendering mode.
-// IMPORTANT: SDrop drag-and-drop is broken under P3D in Processing 3.x/4.x.
-// See contexts/99_gotchas.md.
-final boolean ENABLE_P3D = false;
+// P3D is needed for acceptable video performance at 1024×1024. The trade-off
+// is that SDrop drag-and-drop is broken under P3D in Processing 3.x/4.x — so
+// we register a file picker via the 'O' key instead. See contexts/99_gotchas.md.
+final boolean ENABLE_P3D = true;
 
 // Transform step sizes
 final int   MOVE_STEP_SMALL = 2;
@@ -82,21 +93,25 @@ void setup() {
     hint(DISABLE_TEXTURE_MIPMAPS);
   }
 
-  // 30 Hz — clean Art-Net send rate later, smooth-enough video playback now
+  // 30 Hz — clean Art-Net send rate later, smooth video playback under P3D
   frameRate(30);
 
   canvas       = new Canvas(0, 0, CANVAS_W, CANVAS_H);
   mediaHandler = new MediaHandler(this, canvas);
   ringGrid     = new RingGrid(canvas);
+
+  // SDrop registration is kept in the code (harmless under P3D — events never
+  // fire, no error) so that flipping ENABLE_P3D off restores drag-drop without
+  // a code change. The primary load path under P3D is the 'O' key picker.
   drop         = new SDrop(this);
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", ui region: " + UI_H + "px below");
-  log("[setup] renderer: " + (ENABLE_P3D ? "P3D" : "default (Java2D)"));
+  log("[setup] renderer: " + (ENABLE_P3D ? "P3D (drag-drop disabled, use O for file picker)"
+                                          : "default Java2D (drag-drop active)"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + RingGrid.RING_R + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
-  log("[setup] drag a video (.mp4 / .mov / .avi / .webm) onto the canvas to begin");
-  log("[setup] keys: SPACE pause/play, arrows move (Shift = 10x), Cmd+UP/DOWN scale,");
-  log("[setup]       R reset, G toggle grid, L toggle labels, BACKSPACE clears");
+  log("[setup] keys: O open file picker, SPACE pause/play, arrows move (Shift = 10x),");
+  log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, BACKSPACE clear");
 }
 
 void draw() {
@@ -124,6 +139,11 @@ void draw() {
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
   ringGrid.drawOverlay();
 
+  // Framerate diagnostic — log every ~2 seconds (60 frames at 30 fps target).
+  if (frameCount > 0 && frameCount % 60 == 0) {
+    log("[perf] frameRate=" + nf(frameRate, 0, 1));
+  }
+
   // UI region — empty for phase 3, just a slightly lighter background
   fill(25);
   noStroke();
@@ -135,7 +155,7 @@ void draw() {
   line(0, CANVAS_H, SKETCH_W, CANVAS_H);
   noStroke();
 
-  // P3D zero-image trick — only relevant if/when ENABLE_P3D is re-enabled.
+  // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
   // See: https://github.com/processing/processing-video/issues/207
   if (ENABLE_P3D && mediaHandler.isVideo && mediaHandler.loadedVideo != null) {
     image(mediaHandler.loadedVideo, 0, 0, 0, 0);
@@ -143,8 +163,22 @@ void draw() {
 }
 
 // =============================================================
-// Drag-and-drop
+// File loading — picker (P3D path) + drag-and-drop (Java2D path)
 // =============================================================
+
+void openFilePicker() {
+  selectInput("Select a video file (.mp4 / .mov / .avi / .webm):", "videoFileSelected");
+}
+
+void videoFileSelected(File selection) {
+  if (selection == null) {
+    log("[picker] file selection canceled");
+    return;
+  }
+  String path = selection.getAbsolutePath();
+  log("[picker] " + path);
+  mediaHandler.loadMedia(path);
+}
 
 void dropEvent(DropEvent event) {
   log("[drop] event received: isFile=" + event.isFile()
@@ -157,7 +191,6 @@ void dropEvent(DropEvent event) {
     return;
   }
 
-  // Only accept drops inside the canvas region (top 1024px)
   if (event.y() >= CANVAS_H) {
     log("[drop] dropped outside canvas region — ignoring");
     return;
@@ -182,6 +215,10 @@ void keyPressed(KeyEvent event) {
   if (key == BACKSPACE || key == DELETE) {
     mediaHandler.clearMedia();
     log("[key] cleared media");
+    return;
+  }
+  if (key == 'o' || key == 'O') {
+    openFilePicker();
     return;
   }
   if (key == 'r' || key == 'R') {
