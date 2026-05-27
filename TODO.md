@@ -1,10 +1,9 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 2** — Video transform via keyboard
+- [ ] **Phase 3** — Ring grid overlay (visual only, N=12 hardcoded)
 
 ## Up next
-- [ ] Phase 3 — Ring grid overlay (visual only)
 - [ ] Phase 4 — UI panel + N slider
 - [ ] Phase 5 — Pixel sampling (color extraction)
 - [ ] Phase 6 — Art-Net send
@@ -15,9 +14,12 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Phase 2** — Video transform via keyboard ✓ verified 2026-05-27
+  - Tested: drop + reset, arrows, Shift+arrows, Cmd+↑/↓ scale, R reset, Space pause/play, sequential drop replace
+  - Bug found & fixed: Movie.loop() does NOT reliably resume from paused state in Processing 4. Resume must use .play() — the initial loop flag persists. Documented in `contexts/99_gotchas.md`.
 - [x] **Phase 1** — Skeleton + video drag-and-drop ✓ verified 2026-05-27
   - Tested: two consecutive .mov drops, BACKSPACE clear, clean exit
-  - Note: SDrop+P3D incompatibility caught early — see `contexts/99_gotchas.md`
+  - Bug found & fixed: SDrop is broken under P3D. Documented in `contexts/99_gotchas.md`.
 
 ---
 

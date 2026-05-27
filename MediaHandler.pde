@@ -2,12 +2,13 @@
 // MediaHandler — video load, playback, transform, frame access
 // =============================================================
 // Phase 1: drop loads video, auto-fit-centered playback, BACKSPACE clears.
-// Phase 2 (this version): user-controlled transform via keyboard
+// Phase 2: user-controlled transform via keyboard
 //   - videoX, videoY (center of display in canvas coords)
 //   - videoScale (multiplier on top of fit-to-canvas baseline)
 //   - moveX / moveY / scaleBy / resetTransform
-//   - togglePlayPause uses .loop() on resume (per user requirement:
-//     video always loops unless paused)
+//   - togglePlayPause uses .play() on resume (the loop flag set by the
+//     initial .loop() call persists internally, so the video keeps
+//     looping at end-of-video even after a pause/play cycle).
 //
 // Future phases:
 //   - phase 8: state restoration from config.json
@@ -72,7 +73,10 @@ class MediaHandler {
 
     try {
       loadedVideo = new Movie(parent, filePath);
-      loadedVideo.loop();          // always loop on load
+      // .loop() sets the internal loop flag AND starts playback. The loop
+      // flag persists across subsequent pause()/play() cycles, so we never
+      // have to call loop() again — play() on resume is enough.
+      loadedVideo.loop();
       isVideo = true;
       resetTransform();             // each new video lands centered + fit
       log("[media] loaded video: " + filePath);
@@ -106,17 +110,24 @@ class MediaHandler {
 
   void togglePlayPause() {
     if (loadedVideo == null) {
-      log("[media] no video loaded");
+      log("[media] toggle: no video loaded");
       return;
     }
-    if (loadedVideo.isPlaying()) {
+    boolean playingNow = loadedVideo.isPlaying();
+    log("[media] toggle: isPlaying=" + playingNow);
+    if (playingNow) {
       loadedVideo.pause();
-      log("[media] paused");
+      log("[media] -> paused");
     } else {
-      // Resume with .loop() (NOT .play()) — Processing's .play() would
-      // play once to end and stop, breaking the always-loop semantics.
-      loadedVideo.loop();
-      log("[media] resumed (looping)");
+      // Processing's Movie.pause() reference:
+      //   "If a movie is started again with play(), it will continue from
+      //    where it was paused."
+      // Calling loop() here instead of play() does NOT reliably resume in
+      // Processing 4's GStreamer Movie — that was the original bug. The
+      // internal loop flag set by loadVideoFile()'s .loop() persists, so
+      // play() resumes AND the video keeps looping at end-of-video.
+      loadedVideo.play();
+      log("[media] -> resumed");
     }
   }
 
