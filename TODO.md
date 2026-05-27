@@ -1,10 +1,9 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 1** — Skeleton + video drop & playback
+- [ ] **Phase 2** — Video transform via keyboard
 
 ## Up next
-- [ ] Phase 2 — Video transform via keyboard
 - [ ] Phase 3 — Ring grid overlay (visual only)
 - [ ] Phase 4 — UI panel + N slider
 - [ ] Phase 5 — Pixel sampling (color extraction)
@@ -16,7 +15,9 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
-_(empty — phases will be moved here as they're tested and confirmed)_
+- [x] **Phase 1** — Skeleton + video drag-and-drop ✓ verified 2026-05-27
+  - Tested: two consecutive .mov drops, BACKSPACE clear, clean exit
+  - Note: SDrop+P3D incompatibility caught early — see `contexts/99_gotchas.md`
 
 ---
 
