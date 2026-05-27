@@ -5,12 +5,17 @@
 // Phase 2: user-controlled transform via keyboard
 //   - videoX, videoY (center of display in canvas coords)
 //   - videoScale (multiplier on top of fit-to-canvas baseline)
-//   - moveX / moveY / scaleBy / resetTransform
-//   - togglePlayPause uses .play() on resume (the loop flag set by the
-//     initial .loop() call persists internally, so the video keeps
-//     looping at end-of-video even after a pause/play cycle).
+//   - togglePlayPause uses .play() on resume — loop flag set by initial
+//     .loop() persists across pause/play cycles.
+// Phase 3 perf patch (this version): pre-resize each new video frame on
+//   CPU into a `processedImage` at canvas-fit size. Display via
+//   image(processedImage, ...). GPU texture upload happens at the smaller
+//   canvas-fit size (not native HD), which is the same trick the existing
+//   humanoid_face_twin/Processing/ArtNetSender project uses for smooth
+//   playback under P3D on this machine.
 //
 // Future phases:
+//   - phase 5: sample from processedImage in sampleColors()
 //   - phase 8: state restoration from config.json
 // =============================================================
 
@@ -18,8 +23,9 @@ class MediaHandler {
   PApplet parent;
   Canvas  canvas;
 
-  Movie   loadedVideo  = null;
-  PImage  currentFrame = null;  // points at loadedVideo once a frame is ready
+  Movie   loadedVideo    = null;
+  PImage  processedImage = null;   // video pre-resized to fit canvas (CPU-side)
+  PImage  currentFrame   = null;   // -> processedImage once a frame is ready
 
   boolean isVideo = false;
 
@@ -68,8 +74,9 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
-    currentFrame = null;
-    isVideo      = false;
+    processedImage = null;
+    currentFrame   = null;
+    isVideo        = false;
 
     try {
       loadedVideo = new Movie(parent, filePath);
@@ -94,14 +101,39 @@ class MediaHandler {
   void update() {
     if (isVideo && loadedVideo != null && loadedVideo.available()) {
       loadedVideo.read();
-
-      if (ENABLE_P3D) {
-        loadedVideo.loadPixels();
-      }
-
-      // Movie extends PImage — point currentFrame at it once a frame is ready
-      currentFrame = loadedVideo;
+      updateProcessedImage();
+      currentFrame = processedImage;
     }
+  }
+
+  // Resize the latest video frame into processedImage at canvas-fit size.
+  // The destination buffer is reused across frames; only re-created when the
+  // source video's native dimensions change (i.e. on new-video-load).
+  void updateProcessedImage() {
+    if (loadedVideo == null || loadedVideo.width <= 0 || loadedVideo.height <= 0) return;
+
+    // Calculate the canvas-fit target size (preserve aspect ratio)
+    float scaleX   = (float) canvas.width  / loadedVideo.width;
+    float scaleY   = (float) canvas.height / loadedVideo.height;
+    float fitScale = min(scaleX, scaleY);
+
+    int targetW = max(1, (int)(loadedVideo.width  * fitScale));
+    int targetH = max(1, (int)(loadedVideo.height * fitScale));
+
+    // (Re)create the buffer only when the target dimensions change
+    if (processedImage == null
+        || processedImage.width  != targetW
+        || processedImage.height != targetH) {
+      processedImage = createImage(targetW, targetH, RGB);
+      log("[media] processedImage buffer: " + targetW + "x" + targetH
+            + " (source " + loadedVideo.width + "x" + loadedVideo.height + ")");
+    }
+
+    // Resize-copy from native video to canvas-fit target. PImage.copy() with
+    // different src/dst sizes performs a bilinear resize internally.
+    processedImage.copy(loadedVideo,
+      0, 0, loadedVideo.width, loadedVideo.height,
+      0, 0, targetW, targetH);
   }
 
   // -------------------------------------------------------------
@@ -122,10 +154,8 @@ class MediaHandler {
       // Processing's Movie.pause() reference:
       //   "If a movie is started again with play(), it will continue from
       //    where it was paused."
-      // Calling loop() here instead of play() does NOT reliably resume in
-      // Processing 4's GStreamer Movie — that was the original bug. The
-      // internal loop flag set by loadVideoFile()'s .loop() persists, so
-      // play() resumes AND the video keeps looping at end-of-video.
+      // The internal loop flag set by loadVideoFile()'s .loop() persists,
+      // so play() resumes AND the video keeps looping at end-of-video.
       loadedVideo.play();
       log("[media] -> resumed");
     }
@@ -163,8 +193,9 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
-    currentFrame = null;
-    isVideo      = false;
+    processedImage = null;
+    currentFrame   = null;
+    isVideo        = false;
   }
 
   // -------------------------------------------------------------
@@ -181,9 +212,9 @@ class MediaHandler {
 
   // -------------------------------------------------------------
   // Display geometry — honors transform state set by keyboard.
-  //   baseScale = fit-to-canvas (preserve aspect ratio)
-  //   finalScale = baseScale * videoScale
-  //   center anchor at (videoX, videoY) in canvas-local coords
+  //   currentFrame is now processedImage (already canvas-fit at scale 1.0).
+  //   videoScale multiplies that to give the final display size.
+  //   Center anchor at (videoX, videoY) in canvas-local coords.
   // -------------------------------------------------------------
 
   Rect getDisplayBounds() {
@@ -191,13 +222,8 @@ class MediaHandler {
       return new Rect(canvas.x, canvas.y, canvas.width, canvas.height);
     }
 
-    float scaleX    = (float) canvas.width  / currentFrame.width;
-    float scaleY    = (float) canvas.height / currentFrame.height;
-    float baseScale = min(scaleX, scaleY);
-    float s         = baseScale * videoScale;
-
-    float w = currentFrame.width  * s;
-    float h = currentFrame.height * s;
+    float w = currentFrame.width  * videoScale;
+    float h = currentFrame.height * videoScale;
     float x = canvas.x + videoX - w / 2.0;
     float y = canvas.y + videoY - h / 2.0;
 
