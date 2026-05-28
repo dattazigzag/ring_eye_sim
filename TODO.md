@@ -1,8 +1,8 @@
 # TODO
 
 ## In progress
-- [ ] **Video freeze mitigation — watchdog soak test** (Processing 4.4.4 Intel). The GStreamer AppSink "Native object has been disposed" warnings still print and are expected (upstream race, can't be caught). Three mitigations now in place: `pixelDensity(1)`, 480×480 transcoded sources, and the auto-reload watchdog in `MediaHandler`. Soak-test: leave a clip looping for a long stretch and confirm the watchdog reloads (look for `[watchdog] … reloading`) instead of a hard freeze. Tune `WATCHDOG_TIMEOUT_MS` if it false-fires or recovers too slowly.
 - [ ] **Phase 5** — Pixel sampling (color extraction + preview circles)
+- [ ] Restore `frameRate(30)` once the video fix has soaked (currently commented out in `settings()`)
 
 ## Up next
 - [ ] Phase 6 — Art-Net send
@@ -13,6 +13,11 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Video freeze + Texture.bufferUpdate NPE — FIXED** ✓ all errors gone 2026-05-29 (4.4.4 Intel)
+  - Root cause: `processedImage.copy(loadedVideo, …)` resized off the *live* Movie on the render thread, racing the GStreamer AppSink callback → disposed-buffer warnings + fatal NPE in `Texture.bufferUpdate`
+  - Fix: detach each frame (read → loadPixels → `System.arraycopy` into native-size `loadedImage`), resize off `loadedImage`, never the Movie; call `update()` LAST in `draw()` (after zero-image trick) — matches the old humanoid_face_twin project
+  - Supporting (kept): `pixelDensity(1)`, 480×480 transcoded sources, watchdog as frame-drought safety net
+  - See contexts/99_gotchas.md for full write-up
 - [x] **480×480 resize** ✓ verified 2026-05-28 (4.4.4 Intel)
   - Active area 1024→480, UI panel 200→240, total window 480×720
   - Ring radius proportional: `ringR = canvas.width * 350/1024` ≈ 164
