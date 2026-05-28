@@ -89,6 +89,11 @@ int     subnet       = 0;
 final int DMX_SEND_INTERVAL_MS = 33;       // ~30 Hz
 int       lastDmxSendMillis    = 0;
 
+// Transient video-adjustment guides — shown briefly while moving/scaling the
+// video, auto-hidden a short while after the last adjustment (and on reset).
+final int ADJUST_GUIDE_LINGER_MS = 1000;
+int       lastAdjustMillis       = -100000;   // far in the past = hidden at startup
+
 // =============================================================
 // Lifecycle
 // =============================================================
@@ -201,6 +206,13 @@ void draw() {
     lastDmxSendMillis = millis();
   }
 
+  // Transient adjustment guides — drawn AFTER sampling + the DMX write so they
+  // never affect the sampled cell colors or the bytes on the wire. Auto-hidden
+  // a short while after the last move/scale (and immediately on reset).
+  if (mediaHandler.hasContent() && showAdjustGuides()) {
+    drawAdjustGuides();
+  }
+
   // UI panel background + divider + FPS readout. ControlP5 draws its controls
   // on top automatically after draw() returns.
   ui.setFps(frameRate);
@@ -281,6 +293,7 @@ void keyPressed(KeyEvent event) {
   }
   if (key == 'r' || key == 'R') {
     mediaHandler.resetTransform();
+    lastAdjustMillis = -100000;     // reset hides the adjustment guides immediately
     return;
   }
   if (key == 'g' || key == 'G') {
@@ -344,6 +357,11 @@ void keyPressed(KeyEvent event) {
     } else if (kc == DOWN) {
       mediaHandler.moveY(shift ?  MOVE_STEP_LARGE :  MOVE_STEP_SMALL);
     }
+
+    // Any move/scale key shows the transient adjustment guides (lingers briefly).
+    if (kc == UP || kc == DOWN || kc == LEFT || kc == RIGHT) {
+      lastAdjustMillis = millis();
+    }
   }
 }
 
@@ -365,6 +383,54 @@ void toggleArtNet() {
 
 void resetDMXData() {
   java.util.Arrays.fill(dmxData, (byte) 0);
+}
+
+// =============================================================
+// Transient video-adjustment guides — purely visual, drawn after sampling/DMX
+// so they never reach the wire. Shown while moving/scaling, hidden on idle/reset.
+// =============================================================
+
+boolean showAdjustGuides() {
+  return millis() - lastAdjustMillis < ADJUST_GUIDE_LINGER_MS;
+}
+
+void drawAdjustGuides() {
+  Rect b = mediaHandler.getDisplayBounds();           // video extent on screen
+  float cx  = canvas.x + canvas.width  / 2.0;         // ring / canvas center
+  float cy  = canvas.y + canvas.height / 2.0;
+  float vcx = canvas.x + mediaHandler.videoX;         // video center on screen
+  float vcy = canvas.y + mediaHandler.videoY;
+
+  pushStyle();
+
+  // Video outline (cyan) at the current display bounds.
+  noFill();
+  stroke(57, 184, 213);
+  strokeWeight(1);
+  rect(b.x, b.y, b.w, b.h);
+
+  // Center cross pin (blue) at the VIDEO center — line it up against the red ring
+  // crosshair (Grid View) to center the video on the ring.
+  stroke(60, 140, 255);
+  strokeWeight(1);
+  float cl = 14;
+  line(vcx - cl, vcy, vcx + cl, vcy);
+  line(vcx, vcy - cl, vcx, vcy + cl);
+
+  // x / y / scale readout, stacked just up-left of the ring center so it sits in
+  // the dark middle (readable) instead of a corner. RIGHT/BOTTOM align anchors
+  // the block near the center and grows it up and to the left.
+  fill(57, 184, 213);
+  noStroke();
+  textAlign(RIGHT, BOTTOM);
+  textSize(12);
+  float tx = cx - 8;
+  float lh = 15;
+  text("scale: " + round(mediaHandler.videoScale * 100) + "%", tx, cy - 8);
+  text("y: " + round(mediaHandler.videoY),                     tx, cy - 8 - lh);
+  text("x: " + round(mediaHandler.videoX),                     tx, cy - 8 - lh * 2);
+
+  popStyle();
 }
 
 // =============================================================

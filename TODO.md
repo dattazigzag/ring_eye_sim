@@ -1,12 +1,11 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 8 — Config persistence (data/config.json)**
-  - Save on `exit()` AND a manual `S` hotkey (exit() doesn't fire on a force-kill / IDE-Stop, per the freeze gotcha)
-  - Restore on startup BEFORE the UI is built (so controls show restored values): ring N + grid/labels/preview, color mode/gamma/brightness, Art-Net target (IP/port/universe/subnet/broadcast). Per-key defaults when missing
-  - Auto-load last video only if the file still exists (else amber log), then re-apply saved transform (loadMedia resets it)
-  - Art-Net target restored but NOT auto-started (no surprise broadcast on launch)
-  - Bundled bugfix (#4): when a ControlP5 text field is focused, global `keyPressed` bails (`ui.isTextfieldFocused()`) so Backspace edits the field instead of clearing the video, and other hotkeys don't fire while typing
+- [ ] **Adjustment guides** (video outline + center cross + x/y/scale readout)
+  - While moving/scaling the video: cyan video outline at the display bounds, a blue center cross at the VIDEO center (line it up against the red ring crosshair in Grid View to center the video), and an x/y/scale readout stacked just up-left of the ring center (in the dark middle — not a corner)
+  - Auto-hide ~700 ms after the last move/scale (`ADJUST_GUIDE_LINGER_MS`, stamped via `lastAdjustMillis` on any arrow/scale key) and immediately on reset (`R`)
+  - Drawn in `draw()` AFTER sampling + the DMX write → guides never touch `cellColors` or the bytes on the wire, even while Art-Net is sending
+  - No new hotkeys (reuses move/scale/reset). Open question for Saurabh: blue cross on the VIDEO center (current) vs a fixed pin at the ring center
 
 ## Up next
 - (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
@@ -18,6 +17,13 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Phase 8 — Config persistence (data/config.json)** ✓ tested working 2026-05-29
+  - Save on `exit()` AND the `S` hotkey (exit() doesn't fire on a force-kill / IDE-Stop, per the freeze gotcha)
+  - Restore on startup BEFORE the UI is built (controls show restored values): ring N + grid/labels/preview, color mode/gamma/brightness, Art-Net target (IP/port/universe/subnet/broadcast); per-key defaults when missing
+  - Auto-load last video only if the file still exists (else amber log), then re-apply saved transform (loadMedia resets it first)
+  - Art-Net target restored but NOT auto-started (no surprise broadcast on launch)
+  - Bugfix (#4): a focused ControlP5 text field makes global `keyPressed` bail (`ui.isTextfieldFocused()`) so Backspace edits the field instead of clearing the video, and hotkeys don't fire while typing
+  - Bugfix: GAMMA field `setAutoClear(false)` + echo the applied/clamped value on Enter — default autoClear blanked the field on submit
 - [x] **Phase 7 — Color pipeline (gamma + brightness)** ✓ committed & tested working 2026-05-29
   - `ColorPipeline.pde`: RAW / GAMMA / GAMMA+BRIGHT; gamma 2.2 (256-entry table, rebuilt on change); brightness 0.5; `process(color)→color`. Default GAMMA+BRIGHT
   - Applied in `RingGrid.writeToDMXBuffer(dmxData, pipeline)` AND `drawPreview(pipeline)` → WYSIWYG preview
