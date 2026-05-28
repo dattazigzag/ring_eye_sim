@@ -76,7 +76,7 @@ void settings() {
   // GPU pressure that aggravates the GStreamer video pipeline and tanks perf.
   // pixelDensity(1) also keeps pixels[] coordinates 1:1 with logical coords,
   // which Phase 5 (sampling) depends on. See contexts/99_gotchas.md.
-  pixelDensity(1);
+  //pixelDensity(1);
 }
 
 void setup() {

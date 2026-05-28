@@ -1,6 +1,7 @@
 # TODO
 
 ## In progress
+- [ ] **480×480 resize** — verifying on Processing 4.4.4 (Intel). Active area 1024→480, UI panel 200→240, total window 480×720. Ring radius now proportional: `ringR = canvas.width * 350/1024` ≈ 164. Console relaid out full-width, stacked below the control rows. Manual tweaks under test (not yet committed): `drawCells()` strokeWeight 2→1; `pixelDensity(1)` temporarily commented out in `settings()`.
 - [ ] **Phase 5** — Pixel sampling (color extraction + preview circles)
 
 ## Up next
