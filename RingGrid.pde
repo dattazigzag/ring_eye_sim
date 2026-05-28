@@ -6,9 +6,9 @@
 //   ControlP5 slider). Toggles refactored into set/toggle pairs so the
 //   keyboard and the UI can both drive them without double-toggling.
 //
-//   - Geometry matches the Figma component set exactly:
-//       RING_R   = 350.0  (centerline radius)
-//       cellSize = 2*R*sin(π/N) / (1 + sin(π/N)) * BREATHE
+//   - Geometry matches the Figma component set, scaled to the canvas:
+//       ringR    = canvas.width * (350.0 / 1024.0)   (centerline radius)
+//       cellSize = 2*ringR*sin(π/N) / (1 + sin(π/N)) * BREATHE
 //       BREATHE  = 0.95
 //   - Cells: stroked red rotated radial squares (no fill — video shows through)
 //   - Labels: red, outside each cell, upright
@@ -22,9 +22,14 @@
 // =============================================================
 
 class RingGrid {
-  // Geometry constants — match Figma
-  static final float RING_R  = 350.0;
-  static final float BREATHE = 0.95;
+  // Geometry constants — match Figma.
+  // RING_R was a fixed 350.0 tuned for a 1024 canvas. It's now derived from the
+  // canvas size (in the constructor) so the ring keeps the same 350/1024
+  // proportion at any canvas size — e.g. ~164 on a 480 canvas.
+  static final float RING_R_REF = 350.0;    // reference centerline radius @ 1024 canvas
+  static final float CANVAS_REF = 1024.0;   // reference canvas size for the ratio
+  float ringR;                              // actual centerline radius (set in constructor)
+  static final float BREATHE    = 0.95;
 
   // N range (matches the ControlP5 slider)
   static final int N_MIN = 8;
@@ -47,6 +52,7 @@ class RingGrid {
 
   RingGrid(Canvas canvas) {
     this.canvas = canvas;
+    ringR = canvas.width * (RING_R_REF / CANVAS_REF);  // keep the Figma 350/1024 proportion
     precomputeCells();
   }
 
@@ -77,9 +83,9 @@ class RingGrid {
   // Re-fill all the cached arrays. Call after constructing OR after setN().
   void precomputeCells() {
     float s        = sin(PI / N);
-    cachedCellSize = 2.0 * RING_R * s / (1.0 + s) * BREATHE;
+    cachedCellSize = 2.0 * ringR * s / (1.0 + s) * BREATHE;
     cachedTextSize = constrain(cachedCellSize * 0.2, 8, 20);
-    float labelR   = RING_R + cachedCellSize / 2.0 + cachedTextSize;
+    float labelR   = ringR + cachedCellSize / 2.0 + cachedTextSize;
 
     cellCx  = new float[N];
     cellCy  = new float[N];
@@ -95,8 +101,8 @@ class RingGrid {
       float sinPhi = sin(phi);
       float cosPhi = cos(phi);
 
-      cellCx[i]  = canvasCx + RING_R * sinPhi;
-      cellCy[i]  = canvasCy - RING_R * cosPhi;
+      cellCx[i]  = canvasCx + ringR * sinPhi;
+      cellCy[i]  = canvasCy - ringR * cosPhi;
       cellRot[i] = phi;
       labelCx[i] = canvasCx + labelR * sinPhi;
       labelCy[i] = canvasCy - labelR * cosPhi;
@@ -151,7 +157,7 @@ class RingGrid {
     strokeWeight(1);
     noFill();
 
-    drawDashedCircle(cx, cy, RING_R, 6, 6);
+    drawDashedCircle(cx, cy, ringR, 6, 6);
 
     int crossLen = 10;
     line(cx - crossLen, cy, cx + crossLen, cy);
@@ -162,7 +168,7 @@ class RingGrid {
   void drawCells() {
     noFill();
     stroke(255, 0, 0);
-    strokeWeight(2);
+    strokeWeight(1);
     rectMode(CENTER);
 
     float s = cachedCellSize;

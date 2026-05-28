@@ -1,5 +1,5 @@
 // =============================================================
-// Canvas — the 1024×1024 display region for video + ring overlay
+// Canvas — the square display region for video + ring overlay
 // =============================================================
 // Minimal in phase 1; same role as in the existing humanoid_face_twin
 // project. Holds bounds, renders its background. Kept as a separate

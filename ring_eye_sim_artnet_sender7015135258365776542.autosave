@@ -1,4 +1,4 @@
-// =============================================================
+ // =============================================================
 // Ring Eye Sim — Art-Net Sender
 // Phase 4 (+ patch): UI panel + N slider + console; pixelDensity(1);
 //                    FPS readout on the UI instead of console
@@ -32,9 +32,9 @@ import processing.event.KeyEvent;
 // Constants
 // =============================================================
 
-final int CANVAS_W = 480;
-final int CANVAS_H = 480;
-final int UI_H     = 240;   // taller than the 480 width so the console can stack below the controls
+final int CANVAS_W = 1024;
+final int CANVAS_H = 1024;
+final int UI_H     = 200;
 final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
@@ -100,7 +100,7 @@ void setup() {
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
-  log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
+  log("[setup] ring: N=" + ringGrid.N + ", R=" + RingGrid.RING_R + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
   log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, BACKSPACE clear");
 }

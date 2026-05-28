@@ -136,15 +136,18 @@ class UserInterface {
       .setColor(textColor);
     nSlider.getValueLabel().setColor(textColor);
 
-    // ----- Console (right half) -----
+    // ----- Console (full width, stacked below the control rows) -----
     setupConsole();
   }
 
   void setupConsole() {
-    int consoleX = x + width / 2;
-    int consoleY = y + padding;
-    int consoleW = width / 2 - padding;
-    int consoleH = height - padding * 2;
+    // Stacked layout: at 480 wide there's no room for a side-by-side console,
+    // so it spans the full panel width BELOW the two control rows, leaving a
+    // ~16px strip at the bottom for the FPS readout.
+    int consoleX = x + padding;
+    int consoleY = y + padding + rowHeight * 2;
+    int consoleW = width - padding * 2;
+    int consoleH = height - (padding + rowHeight * 2) - padding - 16;
 
     console = cp5.addTextarea("console")
       .setPosition(consoleX, consoleY)
