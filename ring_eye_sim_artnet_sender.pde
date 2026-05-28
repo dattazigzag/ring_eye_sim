@@ -307,18 +307,15 @@ void keyPressed(KeyEvent event) {
 // =============================================================
 
 void toggleArtNet() {
-  enableDMX = !enableDMX;
+  // Funnel the 'A' key through the same start/stop path as the UI toggle so the
+  // sender is always (re)built from the current field values (6b), then push the
+  // new state into the START/STOP toggle's visual without re-firing it.
   if (enableDMX) {
-    if (dmxSender == null) {                       // lazy create + connect once
-      dmxSender = new DMXSender(useBroadcast, targetIP, artNetPort, universe, subnet);
-      dmxSender.connect();
-    }
-    log("[artnet] ON -> " + (useBroadcast ? "broadcast" : targetIP)
-      + ", universe " + universe + ", subnet " + subnet
-      + " (" + (ringGrid.N * 3) + " channels active)");
+    ui.stopDMX();
   } else {
-    log("[artnet] OFF (sender kept; press A to resume)");
+    ui.startDMX();
   }
+  ui.syncDmxToggle();
 }
 
 void resetDMXData() {

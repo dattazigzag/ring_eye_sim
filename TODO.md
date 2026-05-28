@@ -1,13 +1,10 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 6 — Art-Net send** — 6a implemented, PENDING TEST on an Art-Net monitor:
-  - `DMXSender.pde` (near-verbatim from humanoid_face_twin); `dmxData[512]`; `RingGrid.writeToDMXBuffer()` writes raw RGB → channels i*3..i*3+2
-  - Throttled send (~30 Hz `DMX_SEND_INTERVAL_MS` millis timer, decoupled from the uncapped draw loop); zeroes buffer each tick so cleared video blanks the ring
-  - `A` toggles send (lazy create + connect); `exit()` sends all-zero blackout; pixelDensity≠1 startup WARNING guard
-  - Defaults: broadcast 255.255.255.255:6454, universe 0, subnet 0. Requires `ch.bildspur.artnet` library
-  - **6b remaining:** UI fields (IP / port / universe / subnet / broadcast toggle + START/STOP toggle) so a real ESP32 can be retargeted without code edits
-- [ ] **Re-verify Phase 5 sampling at `pixelDensity(1)`** — the verification screenshots were captured with the startup log showing `pixelDensity=2`, where `pixels[y*width+x]` (logical coords) reads the wrong location. Sampling is only valid at `pixelDensity(1)`. Re-enable it, confirm the log reads `pixelDensity=1`, re-check the discs, THEN trust the values for Phase 6.
+- [ ] **Phase 6b — Art-Net UI fields** — 6a ✓ verified on an Art-Net monitor 2026-05-29 (packets on universe 0, correct channel layout). Remaining:
+  - UI fields so a real ESP32 can be retargeted without code edits: IP textfield, port, universe, subnet, broadcast toggle, START/STOP toggle
+  - Follow `humanoid_face_twin/Processing/ArtNetSender` ControlP5 patterns (Textfield/Toggle styling, callback shape, accent cyan)
+  - Fields write the globals (`targetIP`/`artNetPort`/`universe`/`subnet`/`useBroadcast`); START (re)creates the sender from current values so changed targets take effect without a restart; STOP blacks out + disables. `A` key and the START/STOP toggle stay in sync (uiSyncing guard)
 
 ## Up next
 - [ ] Phase 7 — Color pipeline (gamma + brightness)
@@ -20,7 +17,13 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
-- [x] **Phase 5** — Pixel sampling + preview discs ✓ implemented & visually confirmed 2026-05-29 (re-verify pending at pixelDensity 1 — see In progress)
+- [x] **Phase 6a — Art-Net send** ✓ verified on an Art-Net monitor 2026-05-29 (packets on universe 0, correct channel layout)
+  - `DMXSender.pde` (near-verbatim from humanoid_face_twin); `dmxData[512]`; `RingGrid.writeToDMXBuffer()` writes raw RGB → channels i*3..i*3+2
+  - Throttled send (~30 Hz `DMX_SEND_INTERVAL_MS` millis timer, decoupled from the uncapped draw loop); zeroes buffer each tick so cleared video blanks the ring
+  - `A` toggles send (lazy create + connect); `exit()` sends all-zero blackout; pixelDensity≠1 startup WARNING guard
+  - Defaults: broadcast 255.255.255.255:6454, universe 0, subnet 0. Requires `ch.bildspur.artnet` library
+  - UI retargeting fields are Phase 6b (see In progress)
+- [x] **Phase 5** — Pixel sampling + preview discs ✓ implemented & visually confirmed 2026-05-29; re-verified at `pixelDensity(1)` 2026-05-29 (startup log reads pixelDensity=1 — sampling 1:1 with logical coords, values trustworthy for Phase 6)
   - `RingGrid.sampleColors()` averages video pixels in each cell's inscribed circle (r = cellSize/2) into `cellColors[]`; reads framebuffer via `loadPixels()` (relies on pixelDensity(1)), clamped to canvas region, bit-shift channel extraction, alloc-free
   - `drawPreview()` draws a filled disc of the sampled color per cell; `C` toggles `previewEnabled`
   - draw(): sample after video + zero-image, BEFORE overlay; gated on `previewEnabled` for now (phase 6 widens to `preview || artNet`)

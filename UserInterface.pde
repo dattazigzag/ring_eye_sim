@@ -31,9 +31,11 @@ class UserInterface {
   Textarea  console;
 
   // Colors (match existing project)
-  color bgColor        = color(25);
-  color textColor      = color(220);
-  color accentColor    = color(57, 184, 213);
+  color bgColor          = color(25);
+  color textColor        = color(220);
+  color accentColor      = color(57, 184, 213);
+  color disabledColor    = color(15);    // locked textfield bg (broadcast mode)
+  color dimmedTextColor  = color(120);   // locked textfield text
 
   // Layout
   int padding       = 12;
@@ -44,6 +46,14 @@ class UserInterface {
   Slider nSlider;
   Toggle gridToggle;
   Toggle labelsToggle;
+
+  // Art-Net controls (phase 6b)
+  Textfield ipField;
+  Textfield portField;
+  Textfield subnetField;
+  Textfield universeField;
+  Toggle    broadcastToggle;
+  Toggle    dmxToggle;            // START/STOP DMX (caption flips with state)
 
   // Guards programmatic toggle updates from firing the change callbacks
   boolean uiSyncing = false;
@@ -136,18 +146,97 @@ class UserInterface {
       .setColor(textColor);
     nSlider.getValueLabel().setColor(textColor);
 
-    // ----- Console (full width, stacked below the control rows) -----
+    // ----- Art-Net section (phase 6b) — left half, below a divider -----
+    // Patterns follow humanoid_face_twin/Processing/ArtNetSender:
+    //   broadcast toggle locks/dims the IP field; INTEGER input filters on the
+    //   numeric fields; a single START/STOP toggle (caption flips) that
+    //   (re)builds the sender from the current field values via startDMX().
+    int anLabelY = row2Y + rowHeight;        // ~580, sits just under the divider
+    int anRow1Y  = anLabelY + 24;            // broadcast + IP + port
+    int anRow2Y  = anRow1Y  + 40;            // subnet + universe + START/STOP
+
+    cp5.addTextlabel("artnetLabel")
+      .setText("ARTNET DMX")
+      .setPosition(col1, anLabelY)
+      .setColor(textColor);
+
+    // IP field is created BEFORE the broadcast toggle so the toggle's initial
+    // setValue() can dim/lock it through updateIPField() without a null ref.
+    ipField = cp5.addTextfield("ipField")
+      .setPosition(col1 + 48, anRow1Y)
+      .setSize(110, elementHeight)
+      .setText(targetIP)
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor);
+    ipField.setCaptionLabel("TARGET IP");
+
+    portField = cp5.addTextfield("portField")
+      .setPosition(col1 + 166, anRow1Y)
+      .setSize(50, elementHeight)
+      .setText(str(artNetPort))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    portField.setCaptionLabel("PORT");
+
+    broadcastToggle = cp5.addToggle("broadcastToggle")
+      .setPosition(col1, anRow1Y)
+      .setSize(elementHeight, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          useBroadcast = event.getController().getValue() > 0;
+          updateIPField();
+        }
+      });
+    broadcastToggle.setCaptionLabel("BCAST");
+    broadcastToggle.setValue(useBroadcast ? 1 : 0);   // fires onChange -> sets initial IP lock/dim
+
+    subnetField = cp5.addTextfield("subnetField")
+      .setPosition(col1, anRow2Y)
+      .setSize(34, elementHeight)
+      .setText(str(subnet))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    subnetField.setCaptionLabel("SUBNET");
+
+    universeField = cp5.addTextfield("universeField")
+      .setPosition(col1 + 52, anRow2Y)
+      .setSize(34, elementHeight)
+      .setText(str(universe))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    universeField.setCaptionLabel("UNIV");
+
+    dmxToggle = cp5.addToggle("dmxToggle")
+      .setPosition(col1 + 104, anRow2Y)
+      .setSize(elementHeight, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;                 // ignore programmatic sync from 'A'
+          if (event.getController().getValue() > 0) startDMX();
+          else                                      stopDMX();
+          updateDmxCaption();
+        }
+      });
+    dmxToggle.setCaptionLabel("START DMX");
+
+    // ----- Console (right half, beside the Art-Net cluster) -----
     setupConsole();
   }
 
   void setupConsole() {
-    // Stacked layout: at 480 wide there's no room for a side-by-side console,
-    // so it spans the full panel width BELOW the two control rows, leaving a
-    // ~16px strip at the bottom for the FPS readout.
-    int consoleX = x + padding;
-    int consoleY = y + padding + rowHeight * 2;
-    int consoleW = width - padding * 2;
-    int consoleH = height - (padding + rowHeight * 2) - padding - 16;
+    // Right-half layout: the Art-Net cluster occupies the left half below the
+    // divider, so the console sits beside it on the right half, leaving a
+    // ~16px strip at the bottom for the FPS readout. (log() also mirrors to the
+    // Processing IDE console, which keeps the full history.)
+    int consoleX = x + width / 2 + 6;
+    int consoleY = y + padding + rowHeight * 2 + 2;
+    int consoleW = (x + width - padding) - consoleX;
+    int consoleH = (y + height - padding - 16) - consoleY;
 
     console = cp5.addTextarea("console")
       .setPosition(consoleX, consoleY)
@@ -176,6 +265,71 @@ class UserInterface {
 
   void syncN() {
     nSlider.setValue(ringGrid.N);
+  }
+
+  // -------------------------------------------------------------
+  // Art-Net (phase 6b) — fields drive the globals; START (re)builds the sender
+  // from the current values so an ESP32 can be retargeted without code edits.
+  // -------------------------------------------------------------
+
+  // Broadcast mode pins the IP to 255.255.255.255 and locks/dims the field;
+  // unicast mode unlocks it for a real ESP32 address. (Mirrors the reference.)
+  void updateIPField() {
+    if (ipField == null) return;
+    if (useBroadcast) {
+      ipField.setText("255.255.255.255");
+      ipField.setLock(true);
+      ipField.setColorBackground(disabledColor);
+      ipField.setColor(dimmedTextColor);
+    } else {
+      ipField.setLock(false);
+      ipField.setColorBackground(color(60));
+      ipField.setColor(textColor);
+    }
+  }
+
+  // Pull the field values into the globals, tear down any existing sender, and
+  // build a fresh one so changed target/port/universe/subnet take effect.
+  void startDMX() {
+    artNetPort = parseInt(portField.getText());
+    subnet     = parseInt(subnetField.getText());
+    universe   = parseInt(universeField.getText());
+    targetIP   = useBroadcast ? "255.255.255.255" : ipField.getText().trim();
+
+    if (dmxSender != null) dmxSender.stop();      // rebuild from current values
+    dmxSender = new DMXSender(useBroadcast, targetIP, artNetPort, universe, subnet);
+    dmxSender.connect();
+    enableDMX = true;
+
+    log("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
+      + ":" + artNetPort + ", universe " + universe + ", subnet " + subnet
+      + " (" + (ringGrid.N * 3) + " ch active)");
+  }
+
+  // Blackout the ring, flush, and tear down. enableDMX off; sender kept (a
+  // following START rebuilds it, so this also covers retargeting cleanly).
+  void stopDMX() {
+    if (dmxSender != null) {
+      resetDMXData();                  // global blackout buffer
+      dmxSender.sendDMXData(dmxData);
+      delay(100);                      // let the packet flush
+      dmxSender.stop();
+    }
+    enableDMX = false;
+    log("[artnet] STOP (blackout sent)");
+  }
+
+  void updateDmxCaption() {
+    if (dmxToggle != null) dmxToggle.setCaptionLabel(enableDMX ? "STOP DMX" : "START DMX");
+  }
+
+  // Push the current enableDMX state into the toggle without re-firing start/
+  // stop (the 'A' key has already done the work). Guarded by uiSyncing.
+  void syncDmxToggle() {
+    uiSyncing = true;
+    if (dmxToggle != null) dmxToggle.setValue(enableDMX ? 1 : 0);
+    uiSyncing = false;
+    updateDmxCaption();
   }
 
   // -------------------------------------------------------------
@@ -218,6 +372,14 @@ class UserInterface {
     stroke(60);
     strokeWeight(1);
     line(x, y, x + width, y);
+    noStroke();
+
+    // Divider between the top controls (file/grid/labels/N) and the Art-Net
+    // + console section below.
+    stroke(textColor, 60);
+    strokeWeight(1);
+    float midY = y + padding + rowHeight * 2;
+    line(x + padding, midY, x + width - padding, midY);
     noStroke();
 
     // FPS readout — bottom-left of the panel, clear of all controls
