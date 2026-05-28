@@ -1,11 +1,12 @@
 # TODO
 
 ## In progress
-- [ ] **Adjustment guides** (video outline + center cross + x/y/scale readout)
-  - While moving/scaling the video: cyan video outline at the display bounds, a cyan center cross at the VIDEO center (line it up against the red ring crosshair in Grid View to center the video), and an x/y/scale readout stacked just up-left of the cross — it travels with the cross
-  - Auto-hide ~1000 ms after the last move/scale (`ADJUST_GUIDE_LINGER_MS`, stamped via `lastAdjustMillis` on any arrow/scale key) and immediately on reset (`R`)
-  - Drawn in `draw()` AFTER sampling + the DMX write → guides never touch `cellColors` or the bytes on the wire, even while Art-Net is sending
-  - No new hotkeys (reuses move/scale/reset)
+- [ ] **Preview receiver sync (MQTT side-channel)** — `tools/tailored_dmx_receiver`
+  - Receiver renders a NeoPixel-ring twin of the server: discs + index labels + faint ring outline, mirroring server geometry (`ringR = w*350/1024`, same cellSize formula, LED 0 at 12 o'clock CW)
+  - PIXELS over Art-Net (post gamma/brightness → accurate hardware preview); LAYOUT (`{n, universe, subnet}`) over MQTT topic `ring/config` (retained, qos 1)
+  - Server publishes on connect + on N change (slider) + on Art-Net retarget (`startDMX`); MQTT is optional/non-fatal (Art-Net unaffected if no broker)
+  - preceq: local mosquitto (`brew install mosquitto` → `brew services start mosquitto`). Start order: mosquitto → server → receiver. Receiver key: `L` toggles labels
+  - Future hook: same broker can carry video-trigger / control topics later
 
 ## Up next
 - (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
@@ -17,6 +18,12 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **pixelDensity 2 (high-DPI) + density-aware sampling** ✓ tested working 2026-05-29 (display crisp, Art-Net correct)
+  - `sampleColors()` reads `pixels[(y*d)*pixelWidth + (x*d)]` (`d = pixelDensity`) — correct at any density; d=1 is the old 1:1 path
+  - `pixelDensity(1)` commented out in `settings()`; startup "INVALID" warning softened to an info line. Re-enable the line if the GStreamer freeze / a perf drop returns (sampler works either way)
+- [x] **Adjustment guides** (video outline + center cross + x/y/scale readout) ✓ tested working 2026-05-29
+  - Cyan video outline + cyan cross at the VIDEO center + x/y/scale readout that travels with the cross; auto-hide ~1000 ms after the last move/scale (`ADJUST_GUIDE_LINGER_MS`) and on reset
+  - Drawn after sampling + the DMX write → never touches `cellColors` or the wire. No new hotkeys
 - [x] **Phase 8 — Config persistence (data/config.json)** ✓ tested working 2026-05-29
   - Save on `exit()` AND the `S` hotkey (exit() doesn't fire on a force-kill / IDE-Stop, per the freeze gotcha)
   - Restore on startup BEFORE the UI is built (controls show restored values): ring N + grid/labels/preview, color mode/gamma/brightness, Art-Net target (IP/port/universe/subnet/broadcast); per-key defaults when missing

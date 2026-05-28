@@ -34,6 +34,11 @@ import controlP5.*;
 // Processing's KeyEvent (NOT java.awt.event.KeyEvent — different class)
 import processing.event.KeyEvent;
 
+// MQTT side-channel (phase: receiver sync) — Joël Gähwiler's "MQTT" library
+// (Paho-based). Publishes ring layout (N + universe/subnet) so the preview
+// receiver can mirror it live. Optional: the sketch runs fine with no broker.
+import mqtt.*;
+
 // =============================================================
 // Constants
 // =============================================================
@@ -94,6 +99,15 @@ int       lastDmxSendMillis    = 0;
 final int ADJUST_GUIDE_LINGER_MS = 1000;
 int       lastAdjustMillis       = -100000;   // far in the past = hidden at startup
 
+// MQTT side-channel — publishes ring layout (N + universe/subnet) so the preview
+// receiver mirrors it live. Retained, so a receiver that connects later still
+// gets the current value. Optional: if no broker is up the sketch runs normally
+// (Art-Net is unaffected); see the connect() try/catch in setup().
+MQTTClient    mqtt;
+boolean       mqttReady          = false;
+final String  MQTT_BROKER        = "mqtt://localhost:1883";
+final String  MQTT_TOPIC_CONFIG  = "ring/config";
+
 // =============================================================
 // Lifecycle
 // =============================================================
@@ -141,6 +155,16 @@ void setup() {
 
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
+
+  // MQTT side-channel (optional). connect() blocks ~2 s then throws if no broker
+  // is reachable, so it's wrapped: Art-Net keeps working regardless. The retained
+  // config is (re)published from clientConnected(), which also fires on reconnect.
+  try {
+    mqtt = new MQTTClient(this);
+    mqtt.connect(MQTT_BROKER, "ring_eye_sim_server");
+  } catch (Exception e) {
+    logWarn("[mqtt] no broker at " + MQTT_BROKER + " — receiver won't auto-sync. Start mosquitto and relaunch. (Art-Net is unaffected.)");
+  }
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
@@ -389,6 +413,46 @@ void toggleArtNet() {
 
 void resetDMXData() {
   java.util.Arrays.fill(dmxData, (byte) 0);
+}
+
+// =============================================================
+// MQTT — publish ring layout so the preview receiver mirrors it live.
+// Callbacks (clientConnected/connectionLost/messageReceived) are invoked by the
+// library ON THE MAIN THREAD via a post-draw() hook, so they're render-safe.
+// =============================================================
+
+// Fired on every (re)connect. Re-publish the retained config so a fresh broker
+// session always has the current value.
+void clientConnected() {
+  mqttReady = true;
+  publishRingConfig();
+  logOk("[mqtt] connected -> " + MQTT_BROKER + " (published " + MQTT_TOPIC_CONFIG + ")");
+}
+
+void connectionLost() {
+  mqttReady = false;
+  logWarn("[mqtt] connection lost (auto-reconnecting)");
+}
+
+// Required by the MQTT library's reflective callback lookup even though the
+// server only publishes — the client constructor throws if it's absent.
+void messageReceived(String topic, byte[] payload) {
+  // no-op — this sketch only publishes, but the method must exist or the MQTTClient constructor throws.
+}
+
+// Publish {n, universe, subnet} retained. No-op if MQTT isn't connected, so it's
+// safe to call from anywhere N or the Art-Net target changes.
+void publishRingConfig() {
+  if (mqtt == null || !mqttReady) return;
+  JSONObject j = new JSONObject();
+  j.setInt("n",        ringGrid.N);
+  j.setInt("universe", universe);
+  j.setInt("subnet",   subnet);
+  try {
+    mqtt.publish(MQTT_TOPIC_CONFIG, j.toString(), 1, true);   // qos 1, retained
+  } catch (Exception e) {
+    logWarn("[mqtt] publish failed: " + e.getMessage());
+  }
 }
 
 // =============================================================

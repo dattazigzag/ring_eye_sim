@@ -173,6 +173,7 @@ class UserInterface {
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           ringGrid.setN((int) event.getController().getValue());
+          publishRingConfig();   // mirror N to the preview receiver (MQTT)
         }
       });
     nSlider.getCaptionLabel()
@@ -394,6 +395,8 @@ class UserInterface {
     logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
       + ":" + artNetPort + ", universe " + universe + ", subnet " + subnet
       + " (" + (ringGrid.N * 3) + " ch active)");
+
+    publishRingConfig();   // universe/subnet may have changed — keep receiver in sync
   }
 
   // Blackout the ring, flush, and tear down. enableDMX off; a following START
