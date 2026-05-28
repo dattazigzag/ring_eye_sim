@@ -1,36 +1,24 @@
 // =============================================================
 // Ring Eye Sim — Art-Net Sender
-// Phase 3 (continued): ring grid overlay + P3D switch for performance
+// Phase 4: UI panel + N slider + console (ControlP5)
 // =============================================================
 // See contexts/02_build_plan.md for full phase plan.
 //
-// Phase 3 covers (cumulative since phase 1):
-//   - Drag-and-drop video (DISABLED under P3D — see below)
-//   - Keyboard-controlled video transform (move/scale/reset)
-//   - togglePlayPause via SPACE (uses .play() to resume — loop flag persists)
-//   - RingGrid overlay (stroke-only red cells, no fill so video shows through)
-//   - G toggle grid, L toggle labels
-//   - N hardcoded to 12 (slider lands in phase 4)
-//   - frameRate diagnostic every ~2s
-//
-// Performance note (Phase 3 patch, post-test):
-//   Java2D rendering of 1024×1024 video runs at ~8 fps on this machine.
-//   P3D (GPU-accelerated) handles it at ~30 fps. So we switch back to P3D
-//   and accept the loss of drag-drop, replacing it with a file picker on
-//   the 'O' key. See contexts/99_gotchas.md.
+// Phase 4 adds (on top of phase 3):
+//   - UserInterface panel in the 200px strip below the canvas
+//   - OPEN VIDEO button, GRID / LABELS toggles, PIXELS (N) slider
+//   - Console Textarea — log() now writes to console AND the UI
+//   - N is now adjustable (8–60, even) via the slider
+//   - G / L keys stay in sync with their UI toggles
 //
 // Hotkeys (cumulative):
-//   O                    open file picker (use this under P3D — drag-drop dead)
+//   O                    open file picker
 //   SPACE                toggle play/pause
-//   ←/→                  move video x  ±2 px
-//   ↑/↓                  move video y  ±2 px
-//   Shift+←/→            move video x  ±20 px
-//   Shift+↑/↓            move video y  ±20 px
-//   Cmd+↑                scale × 1.05
-//   Cmd+↓                scale ÷ 1.05
+//   ←/→ ↑/↓              move video ±2 px  (Shift = ±20 px)
+//   Cmd+↑ / Cmd+↓        scale × / ÷ 1.05
 //   R                    reset transform (centered + fit)
-//   G                    toggle ring grid
-//   L                    toggle cell labels
+//   G                    toggle ring grid   (syncs UI toggle)
+//   L                    toggle cell labels (syncs UI toggle)
 //   BACKSPACE            clear loaded video
 // =============================================================
 
@@ -39,6 +27,9 @@ import drop.*;
 
 // Video library
 import processing.video.*;
+
+// ControlP5 UI
+import controlP5.*;
 
 // Processing's KeyEvent (NOT java.awt.event.KeyEvent — different class)
 import processing.event.KeyEvent;
@@ -53,16 +44,17 @@ final int UI_H     = 200;
 final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
-// Rendering mode.
-// P3D is needed for acceptable video performance at 1024×1024. The trade-off
-// is that SDrop drag-and-drop is broken under P3D in Processing 3.x/4.x — so
-// we register a file picker via the 'O' key instead. See contexts/99_gotchas.md.
+// P3D for video performance; SDrop drag-drop is dead under P3D so we use the
+// 'O' key file picker. See contexts/99_gotchas.md.
 final boolean ENABLE_P3D = true;
 
 // Transform step sizes
 final int   MOVE_STEP_SMALL = 2;
 final int   MOVE_STEP_LARGE = 20;
 final float SCALE_STEP      = 1.05;  // 5% per press
+
+// Console
+final int CONSOLE_BUFFER_LIMIT = 200;
 
 // =============================================================
 // Main objects
@@ -71,6 +63,7 @@ final float SCALE_STEP      = 1.05;  // 5% per press
 Canvas        canvas;
 MediaHandler  mediaHandler;
 RingGrid      ringGrid;
+UserInterface ui;
 SDrop         drop;
 
 // =============================================================
@@ -93,24 +86,21 @@ void setup() {
     hint(DISABLE_TEXTURE_MIPMAPS);
   }
 
-  // 30 Hz — clean Art-Net send rate later, smooth video playback under P3D
   frameRate(30);
 
   canvas       = new Canvas(0, 0, CANVAS_W, CANVAS_H);
   mediaHandler = new MediaHandler(this, canvas);
   ringGrid     = new RingGrid(canvas);
+  ui           = new UserInterface(this, 0, CANVAS_H, SKETCH_W, UI_H);
 
-  // SDrop registration is kept in the code (harmless under P3D — events never
-  // fire, no error) so that flipping ENABLE_P3D off restores drag-drop without
-  // a code change. The primary load path under P3D is the 'O' key picker.
+  // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", ui region: " + UI_H + "px below");
-  log("[setup] renderer: " + (ENABLE_P3D ? "P3D (drag-drop disabled, use O for file picker)"
-                                          : "default Java2D (drag-drop active)"));
+  log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + RingGrid.RING_R + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
-  log("[setup] keys: O open file picker, SPACE pause/play, arrows move (Shift = 10x),");
+  log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
   log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, BACKSPACE clear");
 }
 
@@ -139,21 +129,14 @@ void draw() {
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
   ringGrid.drawOverlay();
 
+  // UI panel background + divider (masks any video overflow into the strip).
+  // ControlP5 draws its controls on top automatically after draw() returns.
+  ui.render();
+
   // Framerate diagnostic — log every ~2 seconds (60 frames at 30 fps target).
   if (frameCount > 0 && frameCount % 60 == 0) {
     log("[perf] frameRate=" + nf(frameRate, 0, 1));
   }
-
-  // UI region — empty for phase 3, just a slightly lighter background
-  fill(25);
-  noStroke();
-  rect(0, CANVAS_H, SKETCH_W, UI_H);
-
-  // Thin divider between canvas and UI
-  stroke(60);
-  strokeWeight(1);
-  line(0, CANVAS_H, SKETCH_W, CANVAS_H);
-  noStroke();
 
   // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
   // See: https://github.com/processing/processing-video/issues/207
@@ -223,14 +206,16 @@ void keyPressed(KeyEvent event) {
   }
   if (key == 'r' || key == 'R') {
     mediaHandler.resetTransform();
-    return;  // resetTransform() logs its own confirmation
+    return;
   }
   if (key == 'g' || key == 'G') {
     ringGrid.toggleGrid();
+    ui.syncToggles();    // keep UI toggle in sync
     return;
   }
   if (key == 'l' || key == 'L') {
     ringGrid.toggleLabels();
+    ui.syncToggles();
     return;
   }
 
@@ -257,11 +242,14 @@ void keyPressed(KeyEvent event) {
 }
 
 // =============================================================
-// Logging — still routes to console only; UI textarea in phase 4
+// Logging — routes to Processing console AND the UI console (once it exists)
 // =============================================================
 
 void log(String message) {
   println(message);
+  if (ui != null) {
+    ui.printToConsole(message);
+  }
 }
 
 // =============================================================
