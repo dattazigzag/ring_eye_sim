@@ -16,8 +16,12 @@
 //   - LED 0 at 12 o'clock, CW around the ring
 //   - Per-cell geometry pre-computed into primitive arrays (zero per-frame alloc)
 //
+// Phase 5 (this version): sampleColors() averages the video pixels inside each
+//   cell's inscribed circle into cellColors[]; drawPreview() shows them as
+//   filled discs (toggle 'C'). Sampling reads the framebuffer AFTER the video
+//   is drawn but BEFORE the overlay, so we never average our own red cells.
+//
 // Future phases:
-//   - phase 5: sampleColors() + preview circles
 //   - phase 6: writeToDMXBuffer()
 // =============================================================
 
@@ -38,8 +42,9 @@ class RingGrid {
   Canvas canvas;
   int    N = 12;
 
-  boolean gridEnabled   = true;
-  boolean labelsEnabled = true;
+  boolean gridEnabled    = true;
+  boolean labelsEnabled  = true;
+  boolean previewEnabled = false;   // sampled-color preview discs (toggle 'C')
 
   // ---- precomputed per-cell geometry (refreshed when N changes) ----
   float[] cellCx;        // cell center x in sketch coords
@@ -47,6 +52,7 @@ class RingGrid {
   float[] cellRot;       // cell rotation in radians
   float[] labelCx;       // label center x in sketch coords
   float[] labelCy;       // label center y in sketch coords
+  color[] cellColors;    // latest sampled color per cell (phase 5)
   float   cachedCellSize;
   float   cachedTextSize;
 
@@ -92,6 +98,7 @@ class RingGrid {
     cellRot = new float[N];
     labelCx = new float[N];
     labelCy = new float[N];
+    cellColors = new color[N];
 
     float canvasCx = canvas.x + canvas.width  / 2.0;
     float canvasCy = canvas.y + canvas.height / 2.0;
@@ -132,6 +139,16 @@ class RingGrid {
 
   void toggleLabels() {
     setLabels(!labelsEnabled);
+  }
+
+  void setPreview(boolean on) {
+    if (on == previewEnabled) return;
+    previewEnabled = on;
+    log("[ring] preview: " + (previewEnabled ? "ON" : "OFF"));
+  }
+
+  void togglePreview() {
+    setPreview(!previewEnabled);
   }
 
   // -------------------------------------------------------------
@@ -194,6 +211,72 @@ class RingGrid {
     for (int i = 0; i < N; i++) {
       text(str(i), labelCx[i], labelCy[i]);
     }
+  }
+
+  // -------------------------------------------------------------
+  // Sampling (phase 5)
+  // -------------------------------------------------------------
+
+  // Average the rendered video color inside each cell's inscribed circle into
+  // cellColors[]. Reads the sketch framebuffer directly via loadPixels() —
+  // relies on pixelDensity(1) (pixels[] is 1:1 with logical coords). MUST be
+  // called after the video is drawn but BEFORE drawOverlay(), otherwise we'd
+  // average our own red cell strokes. Uses bit-shift channel extraction (no
+  // red()/green()/blue() calls) and primitive accumulators to stay alloc-free.
+  void sampleColors() {
+    loadPixels();                 // sketch framebuffer -> pixels[]
+    int sw = width;               // sketch (= pixels[]) width
+
+    // Clamp sampling to the canvas region so we never read the UI panel below.
+    int minX = (int) canvas.x;
+    int minY = (int) canvas.y;
+    int maxX = (int) (canvas.x + canvas.width)  - 1;
+    int maxY = (int) (canvas.y + canvas.height) - 1;
+
+    float r  = cachedCellSize / 2.0;
+    int   ri = max(1, (int) r);
+    float r2 = r * r;
+
+    for (int i = 0; i < N; i++) {
+      int ccx = (int) cellCx[i];
+      int ccy = (int) cellCy[i];
+
+      int sumR = 0, sumG = 0, sumB = 0, count = 0;
+      for (int dy = -ri; dy <= ri; dy++) {
+        int y = ccy + dy;
+        if (y < minY || y > maxY) continue;
+        for (int dx = -ri; dx <= ri; dx++) {
+          if (dx * dx + dy * dy > r2) continue;   // inside the inscribed circle
+          int x = ccx + dx;
+          if (x < minX || x > maxX) continue;
+          int c = pixels[y * sw + x];
+          sumR += (c >> 16) & 0xFF;
+          sumG += (c >> 8)  & 0xFF;
+          sumB +=  c        & 0xFF;
+          count++;
+        }
+      }
+      cellColors[i] = (count > 0)
+        ? color(sumR / count, sumG / count, sumB / count)
+        : color(0);
+    }
+  }
+
+  // Filled disc of the sampled color at each cell center — visual confirmation
+  // that sampleColors() reads the right pixels. Toggled by 'C'. A thin dark
+  // ring keeps light samples visible against light video.
+  void drawPreview() {
+    if (!previewEnabled || cellColors == null) return;
+
+    pushStyle();
+    float pr = constrain(cachedCellSize * 0.30, 4, 20);   // preview disc radius
+    stroke(0, 120);
+    strokeWeight(1);
+    for (int i = 0; i < N; i++) {
+      fill(cellColors[i]);
+      ellipse(cellCx[i], cellCy[i], pr * 2, pr * 2);
+    }
+    popStyle();
   }
 
   // -------------------------------------------------------------

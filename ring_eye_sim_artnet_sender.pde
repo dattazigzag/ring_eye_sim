@@ -13,6 +13,7 @@
 //   R                    reset transform (centered + fit)
 //   G                    toggle ring grid   (syncs UI toggle)
 //   L                    toggle cell labels (syncs UI toggle)
+//   C                    toggle sampled-color preview discs
 //   BACKSPACE            clear loaded video
 // =============================================================
 
@@ -102,7 +103,7 @@ void setup() {
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
-  log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, BACKSPACE clear");
+  log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, BACKSPACE clear");
 }
 
 void draw() {
@@ -131,8 +132,18 @@ void draw() {
     image(mediaHandler.loadedVideo, 0, 0, 0, 0);
   }
 
+  // Phase 5: sample the video colors under each cell BEFORE the overlay is
+  // drawn (otherwise we'd average our own red cell strokes). Gated on preview
+  // for now — phase 6 will also sample when Art-Net send is enabled.
+  if (mediaHandler.hasContent() && ringGrid.previewEnabled) {
+    ringGrid.sampleColors();
+  }
+
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
   ringGrid.drawOverlay();
+
+  // Phase 5: preview discs of the sampled colors (toggle 'C'), on top of overlay
+  ringGrid.drawPreview();
 
   // UI panel background + divider + FPS readout. ControlP5 draws its controls
   // on top automatically after draw() returns.
@@ -217,6 +228,10 @@ void keyPressed(KeyEvent event) {
   if (key == 'l' || key == 'L') {
     ringGrid.toggleLabels();
     ui.syncToggles();
+    return;
+  }
+  if (key == 'c' || key == 'C') {
+    ringGrid.togglePreview();
     return;
   }
 
