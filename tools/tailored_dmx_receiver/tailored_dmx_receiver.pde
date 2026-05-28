@@ -5,7 +5,7 @@ byte[] dmxData = new byte[512];
 
 void setup()
 {
-  size(500, 250);
+  size(480, 480);
   textAlign(CENTER, CENTER);
   textSize(20);
 

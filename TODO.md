@@ -1,15 +1,9 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 6c — UI layout polish + colored console**
-  - TOP-LEFT: OPEN VIDEO button + GRID/LABELS/PREVIEW toggles on one row (tight grouped spacing); N slider below — shortened, caption to the RIGHT (legible), accent foreground so the value fill always shows (not just on hover)
-  - New PREVIEW toggle mirrors the `C` key (`RingGrid.previewEnabled`); `C` now also calls `ui.syncToggles()`. Preview default ON (like grid/labels)
-  - TOP-RIGHT: Art-Net cluster (BCAST/IP/PORT, then SUBNET/UNIV/START-STOP); light vertical separator between left controls and right cluster
-  - BOTTOM: full-width console under a horizontal separator
-  - Console rewritten as a custom colored log (ControlP5 Textarea can't color per line): info=grey, ok=green, warn=amber, err=red — via `log()`/`logOk()`/`logWarn()`/`logErr()`. **TEMP green test line in setup() — REMOVE after confirming colors render.**
+- (none in flight — Phase 8 next; see Up next)
 
 ## Up next
-- [ ] Phase 7 — Color pipeline (gamma + brightness)
 - [ ] Phase 8 — Config persistence
 
 ## Decisions
@@ -19,6 +13,16 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Phase 7 — Color pipeline (gamma + brightness)** ✓ committed & tested working 2026-05-29
+  - `ColorPipeline.pde`: RAW / GAMMA / GAMMA+BRIGHT; gamma 2.2 (256-entry table, rebuilt on change); brightness 0.5; `process(color)→color`. Default GAMMA+BRIGHT
+  - Applied in `RingGrid.writeToDMXBuffer(dmxData, pipeline)` AND `drawPreview(pipeline)` → WYSIWYG preview
+  - UI: BRIGHT % slider, GAMMA field, MODE cycle button (left column); hotkeys M / [ / ]; `syncColorControls()`
+  - Panel UI_H 240→300 (window 480×780); video area unchanged
+- [x] **Phase 6c — UI layout polish + colored console** ✓ verified working 2026-05-29
+  - TOP-LEFT: OPEN VIDEO + GRID/LABELS/PREVIEW on one row (tight pitch); N slider below — shortened, caption to the RIGHT, accent foreground (fill always visible)
+  - PREVIEW toggle mirrors `C`; `C` calls `ui.syncToggles()`; preview default ON
+  - TOP-RIGHT: Art-Net cluster; light vertical separator L/R; full-width custom colored console on the bottom (info grey / ok green / warn amber / err red via `log()`/`logOk()`/`logWarn()`/`logErr()`)
+  - Temp green test line removed after confirmation
 - [x] **Phase 6b — Art-Net UI fields** ✓ verified working 2026-05-29
   - IP/port/universe/subnet textfields (INTEGER filter), BCAST toggle locks/dims the IP field, single START/STOP toggle (caption flips)
   - `startDMX()` rebuilds the sender from current field values (retarget without code edits); `stopDMX()` blackout + stop; `A` key funnels through the same path + `syncDmxToggle()`

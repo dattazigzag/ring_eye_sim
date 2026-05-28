@@ -40,7 +40,7 @@ import processing.event.KeyEvent;
 
 final int CANVAS_W = 480;
 final int CANVAS_H = 480;
-final int UI_H     = 240;   // taller than the 480 width so the console can stack below the controls
+final int UI_H     = 300;   // panel taller than the video so the color controls + console fit (video area unchanged)
 final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
@@ -63,6 +63,7 @@ final int CONSOLE_BUFFER_LIMIT = 200;
 Canvas        canvas;
 MediaHandler  mediaHandler;
 RingGrid      ringGrid;
+ColorPipeline colorPipeline;       // phase 7 — gamma/brightness applied to preview + DMX
 UserInterface ui;
 SDrop         drop;
 DMXSender     dmxSender;            // created lazily on first Art-Net enable
@@ -114,10 +115,11 @@ void setup() {
 
   //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 
-  canvas       = new Canvas(0, 0, CANVAS_W, CANVAS_H);
-  mediaHandler = new MediaHandler(this, canvas);
-  ringGrid     = new RingGrid(canvas);
-  ui           = new UserInterface(this, 0, CANVAS_H, SKETCH_W, UI_H);
+  canvas        = new Canvas(0, 0, CANVAS_W, CANVAS_H);
+  mediaHandler  = new MediaHandler(this, canvas);
+  ringGrid      = new RingGrid(canvas);
+  colorPipeline = new ColorPipeline();      // before UI: its defaults seed the color controls
+  ui            = new UserInterface(this, 0, CANVAS_H, SKETCH_W, UI_H);
 
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
@@ -131,9 +133,7 @@ void setup() {
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
   log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, A artnet, BACKSPACE clear");
-
-  // ---- TEMP colored-console test (phase 6c) — REMOVE after confirming colors render ----
-  logOk("[test] colored console OK — this line should be GREEN");
+  log("[setup]       M color mode, [ / ] brightness -/+5%");
 }
 
 void draw() {
@@ -177,14 +177,15 @@ void draw() {
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
   ringGrid.drawOverlay();
 
-  // Phase 5: preview discs of the sampled colors (toggle 'C'), on top of overlay
-  ringGrid.drawPreview();
+  // Phase 5: preview discs of the sampled colors (toggle 'C'), on top of overlay.
+  // Phase 7: discs are run through the color pipeline so they match the ring (WYSIWYG).
+  ringGrid.drawPreview(colorPipeline);
 
   // Phase 6: push one Art-Net frame on the throttle tick. Zero the buffer first
   // so a cleared video (no content) blanks the ring instead of holding stale.
   if (dmxTick) {
     resetDMXData();
-    if (mediaHandler.hasContent()) ringGrid.writeToDMXBuffer(dmxData);
+    if (mediaHandler.hasContent()) ringGrid.writeToDMXBuffer(dmxData, colorPipeline);
     dmxSender.sendDMXData(dmxData);
     lastDmxSendMillis = millis();
   }
@@ -281,6 +282,24 @@ void keyPressed(KeyEvent event) {
   }
   if (key == 'a' || key == 'A') {
     toggleArtNet();
+    return;
+  }
+  if (key == 'm' || key == 'M') {
+    colorPipeline.cycleMode();
+    log("[color] mode: " + colorPipeline.getModeName());
+    ui.syncColorControls();
+    return;
+  }
+  if (key == '[') {
+    colorPipeline.setBrightness(colorPipeline.brightness - 0.05);
+    log("[color] brightness: " + round(colorPipeline.brightness * 100) + "%");
+    ui.syncColorControls();
+    return;
+  }
+  if (key == ']') {
+    colorPipeline.setBrightness(colorPipeline.brightness + 0.05);
+    log("[color] brightness: " + round(colorPipeline.brightness * 100) + "%");
+    ui.syncColorControls();
     return;
   }
 

@@ -63,6 +63,11 @@ class UserInterface {
   Toggle    broadcastToggle;
   Toggle    dmxToggle;            // START/STOP DMX (caption flips with state)
 
+  // Color pipeline controls (phase 7)
+  Slider    brightnessSlider;
+  Textfield gammaField;
+  Button    modeButton;          // cycles RAW -> GAMMA -> GAMMA+BRIGHT
+
   // Guards programmatic toggle updates from firing the change callbacks
   boolean uiSyncing = false;
 
@@ -176,6 +181,56 @@ class UserInterface {
       .setText("PIXELS (N)")
       .setColor(textColor);
 
+    // ----- Color pipeline (phase 7): BRIGHT % + GAMMA, then MODE cycle -----
+    int row3Y = row2Y + 38;             // brightness slider + gamma field
+    int row4Y = row3Y + 36;             // mode cycle button (clears the GAMMA field's caption)
+
+    brightnessSlider = cp5.addSlider("brightnessSlider")
+      .setPosition(col1, row3Y)
+      .setSize(108, elementHeight)
+      .setRange(0, 100)
+      .setValue(colorPipeline.brightness * 100.0)
+      .setColorForeground(accentColor)
+      .setColorActive(accentColor)
+      .setColorValueLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          colorPipeline.setBrightness(event.getController().getValue() / 100.0);
+        }
+      });
+    brightnessSlider.getCaptionLabel()
+      .align(ControlP5.RIGHT_OUTSIDE, ControlP5.CENTER)
+      .setPaddingX(8)
+      .setText("BRIGHT %")
+      .setColor(textColor);
+
+    gammaField = cp5.addTextfield("gammaField")
+      .setPosition(col1 + 178, row3Y)
+      .setSize(40, elementHeight)
+      .setText(nf(colorPipeline.gamma, 0, 1))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          float g = float(gammaField.getText());
+          if (!Float.isNaN(g)) colorPipeline.setGamma(g);
+        }
+      });
+    gammaField.setCaptionLabel("GAMMA");
+
+    modeButton = cp5.addButton("modeButton")
+      .setPosition(col1, row4Y)
+      .setSize(150, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onClick(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          colorPipeline.cycleMode();
+          modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
+        }
+      });
+    modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
+
     // ===== TOP-RIGHT: Art-Net cluster =====
     sepX         = x + 242;             // vertical separator between L / R
     int anX      = sepX + 10;           // right region left edge
@@ -253,7 +308,7 @@ class UserInterface {
     dmxToggle.setCaptionLabel("START DMX");
 
     // ===== Console rect (full width, bottom) =====
-    int hDivY = y + 110;                // horizontal separator above console (clears art-net captions)
+    int hDivY = y + 148;                // horizontal separator above console (clears the color-control rows)
     consoleX = col1;
     consoleY = hDivY + 6;
     consoleW = width - padding * 2;
@@ -274,6 +329,16 @@ class UserInterface {
 
   void syncN() {
     nSlider.setValue(ringGrid.N);
+  }
+
+  // Push the color pipeline state back into its controls after a hotkey change
+  // (M / [ / ]). The brightness slider is guarded so it doesn't re-fire.
+  void syncColorControls() {
+    uiSyncing = true;
+    if (brightnessSlider != null) brightnessSlider.setValue(colorPipeline.brightness * 100.0);
+    uiSyncing = false;
+    if (gammaField != null) gammaField.setText(nf(colorPipeline.gamma, 0, 1));
+    if (modeButton != null) modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
   }
 
   // -------------------------------------------------------------
