@@ -87,7 +87,7 @@ void setup() {
     hint(DISABLE_TEXTURE_MIPMAPS);
   }
 
-  frameRate(30);
+  //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 
   canvas       = new Canvas(0, 0, CANVAS_W, CANVAS_H);
   mediaHandler = new MediaHandler(this, canvas);
@@ -115,16 +115,20 @@ void draw() {
   // Canvas region
   canvas.render();
 
-  // Poll for a new video frame
-  mediaHandler.update();
-
-  // Draw the current video frame at its display bounds (honoring transform)
+  // Draw the current video frame (produced by the PREVIOUS frame's update()).
   if (mediaHandler.hasContent()) {
     PImage frame = mediaHandler.getCurrentFrame();
     if (frame != null) {
       Rect b = mediaHandler.getDisplayBounds();
       image(frame, b.x, b.y, b.w, b.h);
     }
+  }
+
+  // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
+  // Done right after display, BEFORE the read — matching the old project's
+  // renderCanvasContent() order. See: https://github.com/processing/processing-video/issues/207
+  if (ENABLE_P3D && mediaHandler.isVideo && mediaHandler.loadedVideo != null) {
+    image(mediaHandler.loadedVideo, 0, 0, 0, 0);
   }
 
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
@@ -135,11 +139,11 @@ void draw() {
   ui.setFps(frameRate);
   ui.render();
 
-  // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
-  // See: https://github.com/processing/processing-video/issues/207
-  if (ENABLE_P3D && mediaHandler.isVideo && mediaHandler.loadedVideo != null) {
-    image(mediaHandler.loadedVideo, 0, 0, 0, 0);
-  }
+  // Read the NEXT video frame LAST — matches the old humanoid_face_twin project,
+  // which calls update (the read) at the very end of draw(). Decouples frame
+  // delivery from the texture upload above, narrowing the AppSink race window.
+  // Costs one frame of display latency, which is imperceptible.
+  mediaHandler.update();
 }
 
 // =============================================================

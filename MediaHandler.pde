@@ -7,12 +7,15 @@
 //   - videoScale (multiplier on top of fit-to-canvas baseline)
 //   - togglePlayPause uses .play() on resume — loop flag set by initial
 //     .loop() persists across pause/play cycles.
-// Phase 3 perf patch (this version): pre-resize each new video frame on
-//   CPU into a `processedImage` at canvas-fit size. Display via
-//   image(processedImage, ...). GPU texture upload happens at the smaller
-//   canvas-fit size (not native HD), which is the same trick the existing
-//   humanoid_face_twin/Processing/ArtNetSender project uses for smooth
-//   playback under P3D on this machine.
+// Phase 3 perf patch + race fix (this version): each new Movie frame is
+//   detached immediately via read() -> loadPixels() -> System.arraycopy into a
+//   native-size `loadedImage`, then resized off THAT detached copy into a
+//   canvas-fit `processedImage`. We never call copy() on the live Movie —
+//   doing so kept the Movie's GPU texture/buffer path active and raced with
+//   the GStreamer AppSink callback (LinkedList NPE in Texture.bufferUpdate,
+//   plus the "disposed" warnings). The read() is also called LAST in draw(),
+//   after the zero-image trick. Both mirror the known-stable
+//   humanoid_face_twin/Processing/ArtNetSender project on this machine.
 //
 // Watchdog patch (this version): if the GStreamer AppSink stops delivering
 //   frames (the "Native object has been disposed" freeze), auto-reload the
@@ -28,7 +31,8 @@ class MediaHandler {
   Canvas  canvas;
 
   Movie   loadedVideo    = null;
-  PImage  processedImage = null;   // video pre-resized to fit canvas (CPU-side)
+  PImage  loadedImage    = null;   // detached native-size copy of the latest Movie frame
+  PImage  processedImage = null;   // loadedImage resized to canvas-fit size (CPU-side)
   PImage  currentFrame   = null;   // -> processedImage once a frame is ready
 
   boolean isVideo = false;
@@ -91,6 +95,7 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
+    loadedImage    = null;
     processedImage = null;
     currentFrame   = null;
     isVideo        = false;
@@ -122,7 +127,8 @@ class MediaHandler {
   void update() {
     if (isVideo && loadedVideo != null && loadedVideo.available()) {
       loadedVideo.read();
-      updateProcessedImage();
+      if (ENABLE_P3D) loadedVideo.loadPixels();   // mirror old project under P3D
+      updateVideoFrame();                          // detach the frame, then resize the copy
       currentFrame       = processedImage;
       lastFrameMillis    = millis();   // watchdog: a frame landed
       consecutiveReloads = 0;          // pipeline is healthy again
@@ -175,19 +181,48 @@ class MediaHandler {
     }
   }
 
-  // Resize the latest video frame into processedImage at canvas-fit size.
-  // The destination buffer is reused across frames; only re-created when the
-  // source video's native dimensions change (i.e. on new-video-load).
-  void updateProcessedImage() {
+  // Detach the just-read Movie frame into a native-size PImage, then resize
+  // that detached copy. Old humanoid_face_twin pattern: arraycopy the live
+  // Movie's pixels[] out ONCE, synchronously, right after read(); everything
+  // downstream works off loadedImage, so the live Movie is never handed to
+  // copy()/resize on the render thread (which raced the GStreamer AppSink
+  // callback and crashed in Texture.bufferUpdate).
+  void updateVideoFrame() {
     if (loadedVideo == null || loadedVideo.width <= 0 || loadedVideo.height <= 0) return;
 
+    // (Re)create the detached buffer only when the native dims change.
+    if (loadedImage == null
+        || loadedImage.width  != loadedVideo.width
+        || loadedImage.height != loadedVideo.height) {
+      loadedImage = createImage(loadedVideo.width, loadedVideo.height, RGB);
+    }
+
+    loadedVideo.loadPixels();
+    loadedImage.loadPixels();
+    if (loadedVideo.pixels.length == loadedImage.pixels.length) {
+      System.arraycopy(loadedVideo.pixels, 0, loadedImage.pixels, 0, loadedVideo.pixels.length);
+    } else {
+      int minLength = min(loadedVideo.pixels.length, loadedImage.pixels.length);
+      for (int i = 0; i < minLength; i++) loadedImage.pixels[i] = loadedVideo.pixels[i];
+    }
+    loadedImage.updatePixels();
+
+    updateProcessedImage();
+  }
+
+  // Resize the DETACHED loadedImage into processedImage at canvas-fit size.
+  // Source is loadedImage (a plain PImage), never the live Movie. The buffer
+  // is reused across frames; only re-created when the source dims change.
+  void updateProcessedImage() {
+    if (loadedImage == null || loadedImage.width <= 0 || loadedImage.height <= 0) return;
+
     // Calculate the canvas-fit target size (preserve aspect ratio)
-    float scaleX   = (float) canvas.width  / loadedVideo.width;
-    float scaleY   = (float) canvas.height / loadedVideo.height;
+    float scaleX   = (float) canvas.width  / loadedImage.width;
+    float scaleY   = (float) canvas.height / loadedImage.height;
     float fitScale = min(scaleX, scaleY);
 
-    int targetW = max(1, (int)(loadedVideo.width  * fitScale));
-    int targetH = max(1, (int)(loadedVideo.height * fitScale));
+    int targetW = max(1, (int)(loadedImage.width  * fitScale));
+    int targetH = max(1, (int)(loadedImage.height * fitScale));
 
     // (Re)create the buffer only when the target dimensions change
     if (processedImage == null
@@ -195,13 +230,13 @@ class MediaHandler {
         || processedImage.height != targetH) {
       processedImage = createImage(targetW, targetH, RGB);
       log("[media] processedImage buffer: " + targetW + "x" + targetH
-            + " (source " + loadedVideo.width + "x" + loadedVideo.height + ")");
+            + " (source " + loadedImage.width + "x" + loadedImage.height + ")");
     }
 
-    // Resize-copy from native video to canvas-fit target. PImage.copy() with
-    // different src/dst sizes performs a bilinear resize internally.
-    processedImage.copy(loadedVideo,
-      0, 0, loadedVideo.width, loadedVideo.height,
+    // Resize-copy from the detached copy to the canvas-fit target. PImage.copy()
+    // with different src/dst sizes performs a bilinear resize internally.
+    processedImage.copy(loadedImage,
+      0, 0, loadedImage.width, loadedImage.height,
       0, 0, targetW, targetH);
   }
 
@@ -265,6 +300,7 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
+    loadedImage        = null;
     processedImage     = null;
     currentFrame       = null;
     isVideo            = false;
