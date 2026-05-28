@@ -1,10 +1,9 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 4** — UI panel + N slider (ControlP5, console textarea)
+- [ ] **Phase 5** — Pixel sampling (color extraction + preview circles)
 
 ## Up next
-- [ ] Phase 5 — Pixel sampling (color extraction)
 - [ ] Phase 6 — Art-Net send
 - [ ] Phase 7 — Color pipeline (gamma + brightness)
 - [ ] Phase 8 — Config persistence
@@ -13,21 +12,19 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
-- [x] **Phase 3** — Ring grid overlay (visual only, N=12 hardcoded) ✓ verified 2026-05-27
-  - RingGrid class: geometry matches Figma (R=350, BREATHE=0.95, inscribed-tangent cellSize)
-  - Stroked red cells (no fill — video shows through), red labels outside cells, dim red guides
-  - Hotkeys: G toggle grid, L toggle labels
-  - Per-cell geometry precomputed into primitive arrays (zero per-frame allocations)
-  - **Perf**: dropped Java2D (8 fps) → switched to P3D + file picker for `O` (27 fps steady)
-  - **Perf**: added pre-resize-on-CPU pattern (MediaHandler.processedImage at canvas-fit size)
-    — same trick as the existing humanoid_face_twin project; cuts texture upload bandwidth
-  - Documented Java2D vs P3D, the GStreamer reflection exceptions, and the resize pattern
-    in `contexts/99_gotchas.md`
+- [x] **Phase 4** — ControlP5 UI panel (N slider, toggles, console) ✓ verified 2026-05-27
+  - PIXELS (N) slider 8–60 snapped even → RingGrid.setN()
+  - OPEN VIDEO button (mirrors O), GRID/LABELS toggles (mirror G/L)
+  - Console Textarea (pattern from humanoid_face_twin); log() routes to console + UI
+  - RingGrid: setN() + set/toggle pairs, uiSyncing guard prevents double-toggle
+- [x] **Phase 3** — Ring grid overlay + perf fixes (P3D + CPU pre-resize) ✓ verified 2026-05-27
+  - Stroked red cells, labels, guides; geometry matches Figma
+  - 8 fps (Java2D) → 27 fps steady (P3D + processedImage pre-resize)
+  - GStreamer reflection exceptions under Rosetta are harmless (see gotchas)
 - [x] **Phase 2** — Video transform via keyboard ✓ verified 2026-05-27
-  - Bug found & fixed: Movie.loop() does NOT reliably resume from paused state in Processing 4.
-    Resume must use .play() — the initial loop flag persists. In `contexts/99_gotchas.md`.
+  - Movie resume must use .play() not .loop() (see gotchas)
 - [x] **Phase 1** — Skeleton + video drag-and-drop ✓ verified 2026-05-27
-  - Bug found & fixed: SDrop is broken under P3D. In `contexts/99_gotchas.md`.
+  - SDrop broken under P3D (see gotchas)
 
 ---
 
