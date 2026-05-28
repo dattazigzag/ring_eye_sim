@@ -1,7 +1,7 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 5** — Pixel sampling (color extraction + preview circles)
+- [ ] **Re-verify Phase 5 sampling at `pixelDensity(1)`** — the verification screenshots were captured with the startup log showing `pixelDensity=2`, where `pixels[y*width+x]` (logical coords) reads the wrong location. Sampling is only valid at `pixelDensity(1)`. Re-enable it, confirm the log reads `pixelDensity=1`, re-check the discs, THEN trust the values for Phase 6.
 - [ ] Restore `frameRate(30)` once the video fix has soaked (currently commented out in `settings()`)
 
 ## Up next
@@ -13,6 +13,11 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Phase 5** — Pixel sampling + preview discs ✓ implemented & visually confirmed 2026-05-29 (re-verify pending at pixelDensity 1 — see In progress)
+  - `RingGrid.sampleColors()` averages video pixels in each cell's inscribed circle (r = cellSize/2) into `cellColors[]`; reads framebuffer via `loadPixels()` (relies on pixelDensity(1)), clamped to canvas region, bit-shift channel extraction, alloc-free
+  - `drawPreview()` draws a filled disc of the sampled color per cell; `C` toggles `previewEnabled`
+  - draw(): sample after video + zero-image, BEFORE overlay; gated on `previewEnabled` for now (phase 6 widens to `preview || artNet`)
+  - monochrome sources → grey discs (luminance), expected; full RGB ready for color clips
 - [x] **Video freeze + Texture.bufferUpdate NPE — FIXED** ✓ all errors gone 2026-05-29 (4.4.4 Intel)
   - Root cause: `processedImage.copy(loadedVideo, …)` resized off the *live* Movie on the render thread, racing the GStreamer AppSink callback → disposed-buffer warnings + fatal NPE in `Texture.bufferUpdate`
   - Fix: detach each frame (read → loadPixels → `System.arraycopy` into native-size `loadedImage`), resize off `loadedImage`, never the Movie; call `update()` LAST in `draw()` (after zero-image trick) — matches the old humanoid_face_twin project
