@@ -208,13 +208,17 @@ class UserInterface {
     gammaField = cp5.addTextfield("gammaField")
       .setPosition(col1 + 178, row3Y)
       .setSize(40, elementHeight)
-      .setText(nf(colorPipeline.gamma, 0, 1))
+      .setAutoClear(false)                          // keep the text after Enter (default blanks it)
+      .setText(nf(colorPipeline.gamma, 1, 2))
       .setColor(textColor)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           float g = float(gammaField.getText());
           if (!Float.isNaN(g)) colorPipeline.setGamma(g);
+          // Reflect the applied (clamped) value back into the field. setText
+          // doesn't re-fire onChange, so no recursion.
+          gammaField.setText(nf(colorPipeline.gamma, 1, 2));
         }
       });
     gammaField.setCaptionLabel("GAMMA");
@@ -337,7 +341,7 @@ class UserInterface {
     uiSyncing = true;
     if (brightnessSlider != null) brightnessSlider.setValue(colorPipeline.brightness * 100.0);
     uiSyncing = false;
-    if (gammaField != null) gammaField.setText(nf(colorPipeline.gamma, 0, 1));
+    if (gammaField != null) gammaField.setText(nf(colorPipeline.gamma, 1, 2));
     if (modeButton != null) modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
   }
 
