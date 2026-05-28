@@ -341,6 +341,18 @@ class UserInterface {
     if (modeButton != null) modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
   }
 
+  // True if any editable text field currently has keyboard focus. The main
+  // sketch checks this at the top of keyPressed() and bails, so typing (incl.
+  // Backspace) in a field isn't ALSO interpreted as a global hotkey — otherwise
+  // Backspace in the GAMMA/IP/etc. field would clear the loaded video.
+  boolean isTextfieldFocused() {
+    return (ipField       != null && ipField.isFocus())
+        || (portField     != null && portField.isFocus())
+        || (subnetField   != null && subnetField.isFocus())
+        || (universeField != null && universeField.isFocus())
+        || (gammaField    != null && gammaField.isFocus());
+  }
+
   // -------------------------------------------------------------
   // Art-Net (phase 6b) — fields drive the globals; START (re)builds the sender
   // from the current values so an ESP32 can be retargeted without code edits.

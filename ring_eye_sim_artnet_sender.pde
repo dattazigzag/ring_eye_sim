@@ -56,6 +56,9 @@ final float SCALE_STEP      = 1.05;  // 5% per press
 // Console
 final int CONSOLE_BUFFER_LIMIT = 200;
 
+// Config persistence (phase 8) — relative to the sketch folder
+final String CONFIG_PATH = "data/config.json";
+
 // =============================================================
 // Main objects
 // =============================================================
@@ -118,7 +121,13 @@ void setup() {
   canvas        = new Canvas(0, 0, CANVAS_W, CANVAS_H);
   mediaHandler  = new MediaHandler(this, canvas);
   ringGrid      = new RingGrid(canvas);
-  colorPipeline = new ColorPipeline();      // before UI: its defaults seed the color controls
+  colorPipeline = new ColorPipeline();      // before loadConfig + UI
+
+  // Phase 8: restore saved state (ring N + toggles, color, Art-Net target,
+  // last video + transform) BEFORE building the UI so the controls initialize
+  // to the restored values. Art-Net is NOT auto-started.
+  loadConfig();
+
   ui            = new UserInterface(this, 0, CANVAS_H, SKETCH_W, UI_H);
 
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
@@ -133,7 +142,9 @@ void setup() {
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
   log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, A artnet, BACKSPACE clear");
-  log("[setup]       M color mode, [ / ] brightness -/+5%");
+  log("[setup]       M color mode, [ / ] brightness -/+5%, S save config");
+  log("[setup] state: N=" + ringGrid.N + ", mode=" + colorPipeline.getModeName()
+    + ", brightness=" + round(colorPipeline.brightness * 100) + "%, gamma=" + nf(colorPipeline.gamma, 0, 1));
 }
 
 void draw() {
@@ -247,6 +258,13 @@ void dropEvent(DropEvent event) {
 // =============================================================
 
 void keyPressed(KeyEvent event) {
+  // If a ControlP5 text field has focus, let ControlP5 handle the key (typing,
+  // Backspace = delete a char) and do NOT run the global hotkeys — otherwise
+  // Backspace while editing the GAMMA/IP/port/etc. field would also clear the
+  // video. (ControlP5's key handling and Processing's keyPressed both fire, so
+  // we have to bail here.)
+  if (ui != null && ui.isTextfieldFocused()) return;
+
   // ----- non-modifier keys -----
   if (key == ' ') {
     mediaHandler.togglePlayPause();
@@ -300,6 +318,10 @@ void keyPressed(KeyEvent event) {
     colorPipeline.setBrightness(colorPipeline.brightness + 0.05);
     log("[color] brightness: " + round(colorPipeline.brightness * 100) + "%");
     ui.syncColorControls();
+    return;
+  }
+  if (key == 's' || key == 'S') {
+    saveConfig();          // phase 8 — manual checkpoint (exit() may not fire on a force-kill)
     return;
   }
 
@@ -374,11 +396,124 @@ void logErr(String message) {
 }
 
 // =============================================================
+// Config persistence (phase 8) — data/config.json
+// Saved on exit() AND on the 'S' hotkey (exit() may not fire on a force-kill).
+// Loaded in setup() BEFORE the UI is built so the controls show restored values.
+// =============================================================
+
+void saveConfig() {
+  JSONObject root = new JSONObject();
+
+  JSONObject v = new JSONObject();
+  v.setString("lastPath", (mediaHandler != null && mediaHandler.currentPath != null) ? mediaHandler.currentPath : "");
+  v.setFloat("x",     mediaHandler != null ? mediaHandler.videoX     : 0);
+  v.setFloat("y",     mediaHandler != null ? mediaHandler.videoY     : 0);
+  v.setFloat("scale", mediaHandler != null ? mediaHandler.videoScale : 1.0);
+  root.setJSONObject("video", v);
+
+  JSONObject r = new JSONObject();
+  r.setInt("n", ringGrid.N);
+  r.setBoolean("gridEnabled",    ringGrid.gridEnabled);
+  r.setBoolean("labelsEnabled",  ringGrid.labelsEnabled);
+  r.setBoolean("previewEnabled", ringGrid.previewEnabled);
+  root.setJSONObject("ring", r);
+
+  // Art-Net target only — NOT the on/off state (never auto-start on launch).
+  JSONObject a = new JSONObject();
+  a.setBoolean("useBroadcast", useBroadcast);
+  a.setString("targetIP", targetIP);
+  a.setInt("port", artNetPort);
+  a.setInt("universe", universe);
+  a.setInt("subnet", subnet);
+  root.setJSONObject("artnet", a);
+
+  JSONObject c = new JSONObject();
+  c.setInt("mode", colorPipeline.mode);          // 0=RAW, 1=GAMMA, 2=GAMMA+BRIGHT
+  c.setFloat("gamma", colorPipeline.gamma);
+  c.setFloat("brightness", colorPipeline.brightness);
+  root.setJSONObject("color", c);
+
+  try {
+    saveJSONObject(root, CONFIG_PATH);           // creates data/ if needed
+    logOk("[config] saved -> " + CONFIG_PATH);
+  } catch (Exception e) {
+    logErr("[config] save failed: " + e.getMessage());
+  }
+}
+
+void loadConfig() {
+  File f = new File(sketchPath(CONFIG_PATH));
+  if (!f.exists()) {
+    log("[config] no config.json — using defaults");
+    return;
+  }
+
+  JSONObject root;
+  try {
+    root = loadJSONObject(f.getAbsolutePath());
+  } catch (Exception e) {
+    logWarn("[config] couldn't read config.json — using defaults: " + e.getMessage());
+    return;
+  }
+  if (root == null) {
+    logWarn("[config] config.json empty/invalid — using defaults");
+    return;
+  }
+
+  if (root.hasKey("ring")) {
+    JSONObject r = root.getJSONObject("ring");
+    ringGrid.setN(r.getInt("n", ringGrid.N));
+    ringGrid.setGrid(r.getBoolean("gridEnabled", ringGrid.gridEnabled));
+    ringGrid.setLabels(r.getBoolean("labelsEnabled", ringGrid.labelsEnabled));
+    ringGrid.setPreview(r.getBoolean("previewEnabled", ringGrid.previewEnabled));
+  }
+
+  if (root.hasKey("color")) {
+    JSONObject c = root.getJSONObject("color");
+    colorPipeline.setMode(c.getInt("mode", colorPipeline.mode));
+    colorPipeline.setGamma(c.getFloat("gamma", colorPipeline.gamma));
+    colorPipeline.setBrightness(c.getFloat("brightness", colorPipeline.brightness));
+  }
+
+  // Art-Net: restore the target config only — leave sending OFF (opt-in via A).
+  if (root.hasKey("artnet")) {
+    JSONObject a = root.getJSONObject("artnet");
+    useBroadcast = a.getBoolean("useBroadcast", useBroadcast);
+    targetIP     = a.getString("targetIP", targetIP);
+    artNetPort   = a.getInt("port", artNetPort);
+    universe     = a.getInt("universe", universe);
+    subnet       = a.getInt("subnet", subnet);
+  }
+
+  // Video: load only if the saved file still exists, then re-apply the saved
+  // transform (loadMedia resets it on success, so override AFTER).
+  if (root.hasKey("video")) {
+    JSONObject v = root.getJSONObject("video");
+    String path = v.getString("lastPath", "");
+    if (path != null && path.length() > 0) {
+      if (new File(path).exists()) {
+        mediaHandler.loadMedia(path);
+        if (mediaHandler.isVideo) {
+          mediaHandler.videoX     = v.getFloat("x", mediaHandler.videoX);
+          mediaHandler.videoY     = v.getFloat("y", mediaHandler.videoY);
+          mediaHandler.videoScale = v.getFloat("scale", mediaHandler.videoScale);
+        }
+      } else {
+        logWarn("[config] saved video not found, skipping: " + path);
+      }
+    }
+  }
+
+  log("[config] restored from config.json");
+}
+
+// =============================================================
 // Exit cleanup
 // =============================================================
 
 void exit() {
   log("[exit] shutting down");
+  saveConfig();                // phase 8 — persist current state before teardown
   // Art-Net blackout — zero all channels and send once so the ring goes dark.
   if (enableDMX && dmxSender != null) {
     resetDMXData();

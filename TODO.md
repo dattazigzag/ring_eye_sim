@@ -1,10 +1,15 @@
 # TODO
 
 ## In progress
-- (none in flight — Phase 8 next; see Up next)
+- [ ] **Phase 8 — Config persistence (data/config.json)**
+  - Save on `exit()` AND a manual `S` hotkey (exit() doesn't fire on a force-kill / IDE-Stop, per the freeze gotcha)
+  - Restore on startup BEFORE the UI is built (so controls show restored values): ring N + grid/labels/preview, color mode/gamma/brightness, Art-Net target (IP/port/universe/subnet/broadcast). Per-key defaults when missing
+  - Auto-load last video only if the file still exists (else amber log), then re-apply saved transform (loadMedia resets it)
+  - Art-Net target restored but NOT auto-started (no surprise broadcast on launch)
+  - Bundled bugfix (#4): when a ControlP5 text field is focused, global `keyPressed` bails (`ui.isTextfieldFocused()`) so Backspace edits the field instead of clearing the video, and other hotkeys don't fire while typing
 
 ## Up next
-- [ ] Phase 8 — Config persistence
+- (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
 
 ## Decisions
 - `frameRate(30)` stays commented out — sketch runs uncapped (~56 fps). Decided 2026-05-29: NOT restoring it. Art-Net send is throttled independently to ~30 Hz via a millis timer (`DMX_SEND_INTERVAL_MS`) so the receiver isn't flooded.
