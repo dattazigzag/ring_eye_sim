@@ -396,8 +396,6 @@ boolean showAdjustGuides() {
 
 void drawAdjustGuides() {
   Rect b = mediaHandler.getDisplayBounds();           // video extent on screen
-  float cx  = canvas.x + canvas.width  / 2.0;         // ring / canvas center
-  float cy  = canvas.y + canvas.height / 2.0;
   float vcx = canvas.x + mediaHandler.videoX;         // video center on screen
   float vcy = canvas.y + mediaHandler.videoY;
 
@@ -409,26 +407,26 @@ void drawAdjustGuides() {
   strokeWeight(1);
   rect(b.x, b.y, b.w, b.h);
 
-  // Center cross pin (blue) at the VIDEO center — line it up against the red ring
-  // crosshair (Grid View) to center the video on the ring.
-  stroke(60, 140, 255);
+  // Center cross at the VIDEO center — same cyan as the outline. Line it up
+  // against the red ring crosshair (Grid View) to center the video on the ring.
+  stroke(57, 184, 213);
   strokeWeight(1);
   float cl = 14;
   line(vcx - cl, vcy, vcx + cl, vcy);
   line(vcx, vcy - cl, vcx, vcy + cl);
 
-  // x / y / scale readout, stacked just up-left of the ring center so it sits in
-  // the dark middle (readable) instead of a corner. RIGHT/BOTTOM align anchors
-  // the block near the center and grows it up and to the left.
+  // x / y / scale readout, stacked just up-left of the cross so it travels with
+  // the video center. RIGHT/BOTTOM align anchors the block at the cross and grows
+  // it up and to the left.
   fill(57, 184, 213);
   noStroke();
   textAlign(RIGHT, BOTTOM);
   textSize(12);
-  float tx = cx - 8;
+  float tx = vcx - 8;
   float lh = 15;
-  text("scale: " + round(mediaHandler.videoScale * 100) + "%", tx, cy - 8);
-  text("y: " + round(mediaHandler.videoY),                     tx, cy - 8 - lh);
-  text("x: " + round(mediaHandler.videoX),                     tx, cy - 8 - lh * 2);
+  text("scale: " + round(mediaHandler.videoScale * 100) + "%", tx, vcy - 8);
+  text("y: " + round(mediaHandler.videoY),                     tx, vcy - 8 - lh);
+  text("x: " + round(mediaHandler.videoX),                     tx, vcy - 8 - lh * 2);
 
   popStyle();
 }

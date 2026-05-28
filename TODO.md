@@ -2,10 +2,10 @@
 
 ## In progress
 - [ ] **Adjustment guides** (video outline + center cross + x/y/scale readout)
-  - While moving/scaling the video: cyan video outline at the display bounds, a blue center cross at the VIDEO center (line it up against the red ring crosshair in Grid View to center the video), and an x/y/scale readout stacked just up-left of the ring center (in the dark middle — not a corner)
-  - Auto-hide ~700 ms after the last move/scale (`ADJUST_GUIDE_LINGER_MS`, stamped via `lastAdjustMillis` on any arrow/scale key) and immediately on reset (`R`)
+  - While moving/scaling the video: cyan video outline at the display bounds, a cyan center cross at the VIDEO center (line it up against the red ring crosshair in Grid View to center the video), and an x/y/scale readout stacked just up-left of the cross — it travels with the cross
+  - Auto-hide ~1000 ms after the last move/scale (`ADJUST_GUIDE_LINGER_MS`, stamped via `lastAdjustMillis` on any arrow/scale key) and immediately on reset (`R`)
   - Drawn in `draw()` AFTER sampling + the DMX write → guides never touch `cellColors` or the bytes on the wire, even while Art-Net is sending
-  - No new hotkeys (reuses move/scale/reset). Open question for Saurabh: blue cross on the VIDEO center (current) vs a fixed pin at the ring center
+  - No new hotkeys (reuses move/scale/reset)
 
 ## Up next
 - (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
