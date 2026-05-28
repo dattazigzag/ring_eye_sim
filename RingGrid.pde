@@ -44,7 +44,7 @@ class RingGrid {
 
   boolean gridEnabled    = true;
   boolean labelsEnabled  = true;
-  boolean previewEnabled = false;   // sampled-color preview discs (toggle 'C')
+  boolean previewEnabled = true;    // sampled-color preview discs (toggle 'C') — default ON
 
   // ---- precomputed per-cell geometry (refreshed when N changes) ----
   float[] cellCx;        // cell center x in sketch coords

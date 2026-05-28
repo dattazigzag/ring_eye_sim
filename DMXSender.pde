@@ -38,7 +38,7 @@ class DMXSender {
         log("[artnet] started to target IP: " + targetIP);
       }
     } catch (Exception e) {
-      log("[artnet] error connecting: " + e.getMessage());
+      logErr("[artnet] error connecting: " + e.getMessage());
     }
   }
 
@@ -47,7 +47,7 @@ class DMXSender {
       try {
         artnet.unicastDmx(targetIP, subnet, universe, data);
       } catch (Exception e) {
-        log("[artnet] error sending: " + e.getMessage());
+        logErr("[artnet] error sending: " + e.getMessage());
       }
     }
   }

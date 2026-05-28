@@ -125,12 +125,15 @@ void setup() {
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
   if (pixelDensity != 1) {
-    log("[setup] *** WARNING pixelDensity=" + pixelDensity + " (expected 1): sampling reads the WRONG pixels, so preview + Art-Net values are INVALID. Uncomment pixelDensity(1) in settings(). ***");
+    logWarn("[setup] pixelDensity=" + pixelDensity + " (expected 1): sampling reads the WRONG pixels, so preview + Art-Net values are INVALID. Uncomment pixelDensity(1) in settings().");
   }
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
   log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, A artnet, BACKSPACE clear");
+
+  // ---- TEMP colored-console test (phase 6c) — REMOVE after confirming colors render ----
+  logOk("[test] colored console OK — this line should be GREEN");
 }
 
 void draw() {
@@ -273,6 +276,7 @@ void keyPressed(KeyEvent event) {
   }
   if (key == 'c' || key == 'C') {
     ringGrid.togglePreview();
+    ui.syncToggles();    // keep the PREVIEW toggle in sync
     return;
   }
   if (key == 'a' || key == 'A') {
@@ -331,6 +335,23 @@ void log(String message) {
   if (ui != null) {
     ui.printToConsole(message);
   }
+}
+
+// Severity variants for the colored console (phase 6c). The Processing console
+// only gets a plain prefix; the UI console gets the matching color.
+void logOk(String message) {
+  println(message);
+  if (ui != null) ui.printToConsole(message, ui.cOk);
+}
+
+void logWarn(String message) {
+  println("[WARN] " + message);
+  if (ui != null) ui.printToConsole(message, ui.cWarn);
+}
+
+void logErr(String message) {
+  println("[ERR] " + message);
+  if (ui != null) ui.printToConsole(message, ui.cErr);
 }
 
 // =============================================================

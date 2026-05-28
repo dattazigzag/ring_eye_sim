@@ -1,10 +1,12 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 6b — Art-Net UI fields** — 6a ✓ verified on an Art-Net monitor 2026-05-29 (packets on universe 0, correct channel layout). Remaining:
-  - UI fields so a real ESP32 can be retargeted without code edits: IP textfield, port, universe, subnet, broadcast toggle, START/STOP toggle
-  - Follow `humanoid_face_twin/Processing/ArtNetSender` ControlP5 patterns (Textfield/Toggle styling, callback shape, accent cyan)
-  - Fields write the globals (`targetIP`/`artNetPort`/`universe`/`subnet`/`useBroadcast`); START (re)creates the sender from current values so changed targets take effect without a restart; STOP blacks out + disables. `A` key and the START/STOP toggle stay in sync (uiSyncing guard)
+- [ ] **Phase 6c — UI layout polish + colored console**
+  - TOP-LEFT: OPEN VIDEO button + GRID/LABELS/PREVIEW toggles on one row (tight grouped spacing); N slider below — shortened, caption to the RIGHT (legible), accent foreground so the value fill always shows (not just on hover)
+  - New PREVIEW toggle mirrors the `C` key (`RingGrid.previewEnabled`); `C` now also calls `ui.syncToggles()`. Preview default ON (like grid/labels)
+  - TOP-RIGHT: Art-Net cluster (BCAST/IP/PORT, then SUBNET/UNIV/START-STOP); light vertical separator between left controls and right cluster
+  - BOTTOM: full-width console under a horizontal separator
+  - Console rewritten as a custom colored log (ControlP5 Textarea can't color per line): info=grey, ok=green, warn=amber, err=red — via `log()`/`logOk()`/`logWarn()`/`logErr()`. **TEMP green test line in setup() — REMOVE after confirming colors render.**
 
 ## Up next
 - [ ] Phase 7 — Color pipeline (gamma + brightness)
@@ -17,6 +19,10 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Phase 6b — Art-Net UI fields** ✓ verified working 2026-05-29
+  - IP/port/universe/subnet textfields (INTEGER filter), BCAST toggle locks/dims the IP field, single START/STOP toggle (caption flips)
+  - `startDMX()` rebuilds the sender from current field values (retarget without code edits); `stopDMX()` blackout + stop; `A` key funnels through the same path + `syncDmxToggle()`
+  - Patterns from humanoid_face_twin/Processing/ArtNetSender
 - [x] **Phase 6a — Art-Net send** ✓ verified on an Art-Net monitor 2026-05-29 (packets on universe 0, correct channel layout)
   - `DMXSender.pde` (near-verbatim from humanoid_face_twin); `dmxData[512]`; `RingGrid.writeToDMXBuffer()` writes raw RGB → channels i*3..i*3+2
   - Throttled send (~30 Hz `DMX_SEND_INTERVAL_MS` millis timer, decoupled from the uncapped draw loop); zeroes buffer each tick so cleared video blanks the ring

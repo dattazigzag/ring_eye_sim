@@ -1,26 +1,25 @@
 // =============================================================
 // UserInterface — ControlP5 panel below the canvas
 // =============================================================
-// Phase 4 (+ patch):
-//   - Panel background + top divider
-//   - OPEN VIDEO button (mirrors the 'O' key file picker)
-//   - GRID toggle (mirrors 'G'), LABELS toggle (mirrors 'L')
-//   - PIXELS (N) slider, 8–60 snapped to even (mirrors RingGrid.setN)
-//   - Console Textarea (auto-scroll, buffer-limit clear) — log() routes here
-//   - FPS readout drawn as text (no more console spam)
+// Phase 6c (this version): layout polish + colored console.
+//   TOP-LEFT  : OPEN VIDEO button + GRID / LABELS / PREVIEW toggles on one row
+//               (tight grouped spacing); N slider below — shortened, caption to
+//               the RIGHT for legibility, accent foreground so the value fill is
+//               always visible (not only on hover).
+//   TOP-RIGHT : Art-Net cluster — BCAST / TARGET IP / PORT, then
+//               SUBNET / UNIV / START-STOP.
+//   A light vertical separator divides the left controls from the cluster.
+//   BOTTOM    : full-width custom console under a horizontal separator.
 //
-// Colors / styling follow the existing humanoid_face_twin project:
-//   accent cyan = (57,184,213), bg = (25), text = (220).
+// Console: a hand-drawn colored log (ControlP5's Textarea can't color per
+//   line). Each line is stored with its own color; severities info (grey) /
+//   ok (green) / warn (amber) / err (red) are emitted from the main sketch via
+//   log() / logOk() / logWarn() / logErr().
 //
-// Keyboard <-> UI sync:
-//   The uiSyncing flag guards toggle callbacks. When a keypress changes
-//   state, syncToggles() pushes the new value into the toggles with
-//   uiSyncing=true so the callback ignores the programmatic change (no
-//   double-toggle). User clicks have uiSyncing=false and act normally.
+// Keyboard <-> UI sync: the uiSyncing flag guards toggle callbacks so a
+//   key-driven change pushed back into a toggle doesn't double-fire.
 //
 // Future phases:
-//   - phase 6: Art-Net fields (IP / port / subnet / universe / broadcast /
-//     START-STOP) — left half, below the N slider
 //   - phase 7: brightness slider + gamma mode selector
 // =============================================================
 
@@ -28,24 +27,33 @@ class UserInterface {
   PApplet   parent;
   int       x, y, width, height;
   ControlP5 cp5;
-  Textarea  console;
 
-  // Colors (match existing project)
+  // Colors
   color bgColor          = color(25);
   color textColor        = color(220);
   color accentColor      = color(57, 184, 213);
   color disabledColor    = color(15);    // locked textfield bg (broadcast mode)
   color dimmedTextColor  = color(120);   // locked textfield text
 
+  // Console severity colors
+  color cInfo = color(185);              // normal
+  color cOk   = color(90, 200, 130);     // green  (success / status)
+  color cWarn = color(235, 170, 70);     // amber  (warning)
+  color cErr  = color(225, 85, 85);      // red    (error)
+
   // Layout
   int padding       = 12;
   int elementHeight = 20;
-  int rowHeight     = 44;
+
+  // Vertical separator x + console rect (computed in setupControls)
+  int sepX;
+  int consoleX, consoleY, consoleW, consoleH;
 
   // Control references
   Slider nSlider;
   Toggle gridToggle;
   Toggle labelsToggle;
+  Toggle previewToggle;
 
   // Art-Net controls (phase 6b)
   Textfield ipField;
@@ -61,6 +69,10 @@ class UserInterface {
   // FPS readout (updated each frame from the main sketch)
   float displayFps = 0;
 
+  // Custom colored console buffer (parallel arrays: text + color per line)
+  java.util.ArrayList<String>  conLines  = new java.util.ArrayList<String>();
+  java.util.ArrayList<Integer> conColors = new java.util.ArrayList<Integer>();
+
   UserInterface(PApplet parent, int x, int y, int width, int height) {
     this.parent = parent;
     this.x      = x;
@@ -70,6 +82,9 @@ class UserInterface {
 
     cp5 = new ControlP5(parent);
     setupControls();
+
+    printToConsole("ring_eye_sim console ready");
+    printToConsole("-------------------------------");
   }
 
   // -------------------------------------------------------------
@@ -81,38 +96,39 @@ class UserInterface {
     cp5.setColorBackground(color(50));
     cp5.setColorActive(accentColor);
 
-    int col1   = x + padding;
-    int row1Y  = y + padding;
-    int row2Y  = row1Y + rowHeight;
+    int col1 = x + padding;
 
-    // ----- Row 1: file picker + grid/labels toggles -----
+    // ===== TOP-LEFT: file + toggles row, slider row =====
+    int row1Y = y + padding;            // button + GRID/LABELS/PREVIEW
+    int row2Y = row1Y + 38;             // N slider
 
     cp5.addButton("openVideoBtn")
       .setPosition(col1, row1Y)
-      .setSize(110, elementHeight)
+      .setSize(84, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          openFilePicker();   // global in main sketch
-        }
+        public void controlEvent(CallbackEvent event) { openFilePicker(); }
       });
     cp5.getController("openVideoBtn").setCaptionLabel("OPEN VIDEO");
 
+    int togX     = col1 + 96;           // toggles start just right of the button
+    int togPitch = 46;                  // tight, grouped spacing
+
     gridToggle = cp5.addToggle("gridToggle")
-      .setPosition(col1 + 140, row1Y)
+      .setPosition(togX, row1Y)
       .setSize(elementHeight, elementHeight)
       .setValue(ringGrid.gridEnabled)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;       // ignore programmatic sync
+          if (uiSyncing) return;
           ringGrid.setGrid(event.getController().getValue() > 0);
         }
       });
     gridToggle.setCaptionLabel("GRID");
 
     labelsToggle = cp5.addToggle("labelsToggle")
-      .setPosition(col1 + 230, row1Y)
+      .setPosition(togX + togPitch, row1Y)
       .setSize(elementHeight, elementHeight)
       .setValue(ringGrid.labelsEnabled)
       .setColorCaptionLabel(textColor)
@@ -124,46 +140,58 @@ class UserInterface {
       });
     labelsToggle.setCaptionLabel("LABELS");
 
-    // ----- Row 2: PIXELS (N) slider -----
-    int nStops = (RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1;   // 27
+    previewToggle = cp5.addToggle("previewToggle")
+      .setPosition(togX + togPitch * 2, row1Y)
+      .setSize(elementHeight, elementHeight)
+      .setValue(ringGrid.previewEnabled)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          ringGrid.setPreview(event.getController().getValue() > 0);
+        }
+      });
+    previewToggle.setCaptionLabel("PREVIEW");
 
+    // N slider — shortened; caption to the RIGHT; fill always visible (accent
+    // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
       .setPosition(col1, row2Y)
-      .setSize(220, elementHeight)
+      .setSize(108, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
-      .setNumberOfTickMarks(nStops)
+      .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
       .snapToTickMarks(true)
       .setValue(ringGrid.N)
+      .setColorForeground(accentColor)
+      .setColorActive(accentColor)
+      .setColorValueLabel(textColor)
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           ringGrid.setN((int) event.getController().getValue());
         }
       });
     nSlider.getCaptionLabel()
-      .align(ControlP5.LEFT, ControlP5.BOTTOM_OUTSIDE)
-      .setPaddingY(4)
+      .align(ControlP5.RIGHT_OUTSIDE, ControlP5.CENTER)
+      .setPaddingX(8)
       .setText("PIXELS (N)")
       .setColor(textColor);
-    nSlider.getValueLabel().setColor(textColor);
 
-    // ----- Art-Net section (phase 6b) — left half, below a divider -----
-    // Patterns follow humanoid_face_twin/Processing/ArtNetSender:
-    //   broadcast toggle locks/dims the IP field; INTEGER input filters on the
-    //   numeric fields; a single START/STOP toggle (caption flips) that
-    //   (re)builds the sender from the current field values via startDMX().
-    int anLabelY = row2Y + rowHeight;        // ~580, sits just under the divider
-    int anRow1Y  = anLabelY + 24;            // broadcast + IP + port
-    int anRow2Y  = anRow1Y  + 40;            // subnet + universe + START/STOP
+    // ===== TOP-RIGHT: Art-Net cluster =====
+    sepX         = x + 242;             // vertical separator between L / R
+    int anX      = sepX + 10;           // right region left edge
+    int anLabelY = row1Y;
+    int anRow1Y  = row1Y + 22;          // BCAST + IP + PORT
+    int anRow2Y  = anRow1Y + 36;        // SUBNET + UNIV + START/STOP
 
     cp5.addTextlabel("artnetLabel")
       .setText("ARTNET DMX")
-      .setPosition(col1, anLabelY)
+      .setPosition(anX, anLabelY)
       .setColor(textColor);
 
     // IP field is created BEFORE the broadcast toggle so the toggle's initial
     // setValue() can dim/lock it through updateIPField() without a null ref.
     ipField = cp5.addTextfield("ipField")
-      .setPosition(col1 + 48, anRow1Y)
+      .setPosition(anX + 32, anRow1Y)
       .setSize(110, elementHeight)
       .setText(targetIP)
       .setColor(textColor)
@@ -171,8 +199,8 @@ class UserInterface {
     ipField.setCaptionLabel("TARGET IP");
 
     portField = cp5.addTextfield("portField")
-      .setPosition(col1 + 166, anRow1Y)
-      .setSize(50, elementHeight)
+      .setPosition(anX + 150, anRow1Y)
+      .setSize(48, elementHeight)
       .setText(str(artNetPort))
       .setColor(textColor)
       .setColorCaptionLabel(textColor)
@@ -180,7 +208,7 @@ class UserInterface {
     portField.setCaptionLabel("PORT");
 
     broadcastToggle = cp5.addToggle("broadcastToggle")
-      .setPosition(col1, anRow1Y)
+      .setPosition(anX, anRow1Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -190,10 +218,10 @@ class UserInterface {
         }
       });
     broadcastToggle.setCaptionLabel("BCAST");
-    broadcastToggle.setValue(useBroadcast ? 1 : 0);   // fires onChange -> sets initial IP lock/dim
+    broadcastToggle.setValue(useBroadcast ? 1 : 0);   // fires onChange -> initial IP lock/dim
 
     subnetField = cp5.addTextfield("subnetField")
-      .setPosition(col1, anRow2Y)
+      .setPosition(anX, anRow2Y)
       .setSize(34, elementHeight)
       .setText(str(subnet))
       .setColor(textColor)
@@ -202,7 +230,7 @@ class UserInterface {
     subnetField.setCaptionLabel("SUBNET");
 
     universeField = cp5.addTextfield("universeField")
-      .setPosition(col1 + 52, anRow2Y)
+      .setPosition(anX + 52, anRow2Y)
       .setSize(34, elementHeight)
       .setText(str(universe))
       .setColor(textColor)
@@ -211,7 +239,7 @@ class UserInterface {
     universeField.setCaptionLabel("UNIV");
 
     dmxToggle = cp5.addToggle("dmxToggle")
-      .setPosition(col1 + 104, anRow2Y)
+      .setPosition(anX + 128, anRow2Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -224,32 +252,12 @@ class UserInterface {
       });
     dmxToggle.setCaptionLabel("START DMX");
 
-    // ----- Console (right half, beside the Art-Net cluster) -----
-    setupConsole();
-  }
-
-  void setupConsole() {
-    // Right-half layout: the Art-Net cluster occupies the left half below the
-    // divider, so the console sits beside it on the right half, leaving a
-    // ~16px strip at the bottom for the FPS readout. (log() also mirrors to the
-    // Processing IDE console, which keeps the full history.)
-    int consoleX = x + width / 2 + 6;
-    int consoleY = y + padding + rowHeight * 2 + 2;
-    int consoleW = (x + width - padding) - consoleX;
-    int consoleH = (y + height - padding - 16) - consoleY;
-
-    console = cp5.addTextarea("console")
-      .setPosition(consoleX, consoleY)
-      .setSize(consoleW, consoleH)
-      .setLineHeight(14)
-      .setColor(color(180))
-      .setColorForeground(color(255, 50))
-      .scroll(1.0)
-      .showScrollbar();
-    console.getCaptionLabel().setText("");
-
-    printToConsole("ring_eye_sim console ready");
-    printToConsole("-------------------------------");
+    // ===== Console rect (full width, bottom) =====
+    int hDivY = y + 110;                // horizontal separator above console (clears art-net captions)
+    consoleX = col1;
+    consoleY = hDivY + 6;
+    consoleW = width - padding * 2;
+    consoleH = (y + height - padding - 16) - consoleY;
   }
 
   // -------------------------------------------------------------
@@ -260,6 +268,7 @@ class UserInterface {
     uiSyncing = true;
     gridToggle.setValue(ringGrid.gridEnabled ? 1 : 0);
     labelsToggle.setValue(ringGrid.labelsEnabled ? 1 : 0);
+    previewToggle.setValue(ringGrid.previewEnabled ? 1 : 0);
     uiSyncing = false;
   }
 
@@ -273,7 +282,7 @@ class UserInterface {
   // -------------------------------------------------------------
 
   // Broadcast mode pins the IP to 255.255.255.255 and locks/dims the field;
-  // unicast mode unlocks it for a real ESP32 address. (Mirrors the reference.)
+  // unicast mode unlocks it for a real ESP32 address.
   void updateIPField() {
     if (ipField == null) return;
     if (useBroadcast) {
@@ -301,13 +310,13 @@ class UserInterface {
     dmxSender.connect();
     enableDMX = true;
 
-    log("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
+    logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
       + ":" + artNetPort + ", universe " + universe + ", subnet " + subnet
       + " (" + (ringGrid.N * 3) + " ch active)");
   }
 
-  // Blackout the ring, flush, and tear down. enableDMX off; sender kept (a
-  // following START rebuilds it, so this also covers retargeting cleanly).
+  // Blackout the ring, flush, and tear down. enableDMX off; a following START
+  // rebuilds the sender, so this also covers retargeting cleanly.
   void stopDMX() {
     if (dmxSender != null) {
       resetDMXData();                  // global blackout buffer
@@ -341,27 +350,25 @@ class UserInterface {
   }
 
   // -------------------------------------------------------------
-  // Console
+  // Console — custom colored log (per-line color; drawn in render()).
   // -------------------------------------------------------------
 
   void printToConsole(String message) {
-    if (console == null) return;
-    console.append(message + "\n");
-    console.scroll(1.0);
-    if (countLines(console.getText()) > CONSOLE_BUFFER_LIMIT) {
-      console.clear();
-      console.append("(console cleared at buffer limit)\n");
+    printToConsole(message, cInfo);
+  }
+
+  void printToConsole(String message, color c) {
+    conLines.add(message);
+    conColors.add(c);
+    while (conLines.size() > CONSOLE_BUFFER_LIMIT) {
+      conLines.remove(0);
+      conColors.remove(0);
     }
   }
 
-  int countLines(String text) {
-    if (text == null || text.isEmpty()) return 0;
-    return text.split("\n").length;
-  }
-
   // -------------------------------------------------------------
-  // Render — panel background + top divider + FPS text. ControlP5 draws its
-  // own controls on top automatically (post-draw hook).
+  // Render — panel bg, separators, custom console, FPS. ControlP5 draws its
+  // own controls on top automatically after draw() returns.
   // -------------------------------------------------------------
 
   void render() {
@@ -369,20 +376,34 @@ class UserInterface {
     noStroke();
     rect(x, y, width, height);
 
+    // Top boundary (canvas | panel)
     stroke(60);
     strokeWeight(1);
     line(x, y, x + width, y);
-    noStroke();
 
-    // Divider between the top controls (file/grid/labels/N) and the Art-Net
-    // + console section below.
-    stroke(textColor, 60);
+    // Light separators: vertical (left controls | art-net) + horizontal (above console)
+    stroke(textColor, 55);
     strokeWeight(1);
-    float midY = y + padding + rowHeight * 2;
-    line(x + padding, midY, x + width - padding, midY);
+    line(sepX, y + 8, sepX, consoleY - 8);
+    line(x + padding, consoleY - 6, x + width - padding, consoleY - 6);
     noStroke();
 
-    // FPS readout — bottom-left of the panel, clear of all controls
+    // ----- custom colored console (newest line at the bottom) -----
+    fill(18);
+    rect(consoleX, consoleY, consoleW, consoleH);
+
+    textAlign(LEFT, BOTTOM);
+    textSize(11);
+    float lh = 14;
+    float ty = consoleY + consoleH - 4;
+    for (int i = conLines.size() - 1; i >= 0; i--) {
+      if (ty < consoleY + lh - 2) break;          // ran out of vertical room
+      fill(conColors.get(i));
+      text(conLines.get(i), consoleX + 6, ty);
+      ty -= lh;
+    }
+
+    // FPS readout — bottom-left strip, below the console
     fill(textColor);
     textAlign(LEFT, BOTTOM);
     textSize(12);
