@@ -1,13 +1,20 @@
 # TODO
 
 ## In progress
+- [ ] **Phase 6 — Art-Net send** — 6a implemented, PENDING TEST on an Art-Net monitor:
+  - `DMXSender.pde` (near-verbatim from humanoid_face_twin); `dmxData[512]`; `RingGrid.writeToDMXBuffer()` writes raw RGB → channels i*3..i*3+2
+  - Throttled send (~30 Hz `DMX_SEND_INTERVAL_MS` millis timer, decoupled from the uncapped draw loop); zeroes buffer each tick so cleared video blanks the ring
+  - `A` toggles send (lazy create + connect); `exit()` sends all-zero blackout; pixelDensity≠1 startup WARNING guard
+  - Defaults: broadcast 255.255.255.255:6454, universe 0, subnet 0. Requires `ch.bildspur.artnet` library
+  - **6b remaining:** UI fields (IP / port / universe / subnet / broadcast toggle + START/STOP toggle) so a real ESP32 can be retargeted without code edits
 - [ ] **Re-verify Phase 5 sampling at `pixelDensity(1)`** — the verification screenshots were captured with the startup log showing `pixelDensity=2`, where `pixels[y*width+x]` (logical coords) reads the wrong location. Sampling is only valid at `pixelDensity(1)`. Re-enable it, confirm the log reads `pixelDensity=1`, re-check the discs, THEN trust the values for Phase 6.
-- [ ] Restore `frameRate(30)` once the video fix has soaked (currently commented out in `settings()`)
 
 ## Up next
-- [ ] Phase 6 — Art-Net send
 - [ ] Phase 7 — Color pipeline (gamma + brightness)
 - [ ] Phase 8 — Config persistence
+
+## Decisions
+- `frameRate(30)` stays commented out — sketch runs uncapped (~56 fps). Decided 2026-05-29: NOT restoring it. Art-Net send is throttled independently to ~30 Hz via a millis timer (`DMX_SEND_INTERVAL_MS`) so the receiver isn't flooded.
 
 ## Deferred
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)

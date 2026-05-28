@@ -280,6 +280,27 @@ class RingGrid {
   }
 
   // -------------------------------------------------------------
+  // DMX (phase 6)
+  // -------------------------------------------------------------
+
+  // Write each cell's RAW sampled RGB into the DMX buffer: channels
+  // i*3, i*3+1, i*3+2 = R, G, B for LED i. No color pipeline yet (phase 7).
+  // Reads cellColors[] — caller must run sampleColors() first this frame.
+  // Java bytes are signed; the 0xFF-masked cast preserves the raw 0..255 byte
+  // on the wire, which is what Art-Net expects.
+  void writeToDMXBuffer(byte[] dmxData) {
+    if (cellColors == null) return;
+    for (int i = 0; i < N; i++) {
+      int base = i * 3;
+      if (base + 2 >= dmxData.length) break;   // 512-channel safety
+      int c = cellColors[i];
+      dmxData[base]     = (byte) ((c >> 16) & 0xFF);  // R
+      dmxData[base + 1] = (byte) ((c >> 8)  & 0xFF);  // G
+      dmxData[base + 2] = (byte) ( c        & 0xFF);  // B
+    }
+  }
+
+  // -------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------
 

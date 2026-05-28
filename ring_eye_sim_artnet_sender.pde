@@ -14,6 +14,7 @@
 //   G                    toggle ring grid   (syncs UI toggle)
 //   L                    toggle cell labels (syncs UI toggle)
 //   C                    toggle sampled-color preview discs
+//   A                    toggle Art-Net send (broadcast, universe 0)
 //   BACKSPACE            clear loaded video
 // =============================================================
 
@@ -22,6 +23,10 @@ import drop.*;
 
 // Video library
 import processing.video.*;
+
+// Art-Net (phase 6) — "Art-Net for Processing" library (ch.bildspur.artnet)
+import ch.bildspur.artnet.*;
+import java.net.InetAddress;
 
 // ControlP5 UI
 import controlP5.*;
@@ -60,6 +65,25 @@ MediaHandler  mediaHandler;
 RingGrid      ringGrid;
 UserInterface ui;
 SDrop         drop;
+DMXSender     dmxSender;            // created lazily on first Art-Net enable
+
+// =============================================================
+// Art-Net config (phase 6) — defaults from project brief; UI fields in 6b
+// =============================================================
+
+byte[]  dmxData      = new byte[512];      // one DMX universe, zeroed each send
+boolean enableDMX    = false;              // toggled with 'A'
+boolean useBroadcast = true;               // broadcast vs unicast
+String  targetIP     = "255.255.255.255";          // broadcast address
+int     artNetPort   = 6454;               // standard Art-Net port
+int     universe     = 0;
+int     subnet       = 0;
+
+// Send throttle — frameRate() is uncapped (~56 fps), so the Art-Net send is
+// capped to ~30 Hz on its own millis timer, decoupled from the draw rate, so
+// the receiver isn't flooded. (See TODO 'Decisions'.)
+final int DMX_SEND_INTERVAL_MS = 33;       // ~30 Hz
+int       lastDmxSendMillis    = 0;
 
 // =============================================================
 // Lifecycle
@@ -100,10 +124,13 @@ void setup() {
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
+  if (pixelDensity != 1) {
+    log("[setup] *** WARNING pixelDensity=" + pixelDensity + " (expected 1): sampling reads the WRONG pixels, so preview + Art-Net values are INVALID. Uncomment pixelDensity(1) in settings(). ***");
+  }
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
-  log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, BACKSPACE clear");
+  log("[setup]       Cmd+UP/DOWN scale, R reset, G grid, L labels, C preview, A artnet, BACKSPACE clear");
 }
 
 void draw() {
@@ -132,10 +159,15 @@ void draw() {
     image(mediaHandler.loadedVideo, 0, 0, 0, 0);
   }
 
-  // Phase 5: sample the video colors under each cell BEFORE the overlay is
-  // drawn (otherwise we'd average our own red cell strokes). Gated on preview
-  // for now — phase 6 will also sample when Art-Net send is enabled.
-  if (mediaHandler.hasContent() && ringGrid.previewEnabled) {
+  // Phase 6: is it time to push an Art-Net frame? Throttled on its own timer
+  // (DMX_SEND_INTERVAL_MS), independent of the uncapped draw rate.
+  boolean dmxTick = enableDMX && dmxSender != null
+    && (millis() - lastDmxSendMillis >= DMX_SEND_INTERVAL_MS);
+
+  // Phase 5/6: sample the video colors under each cell BEFORE the overlay is
+  // drawn (otherwise we'd average our own red cell strokes). Sample if the
+  // preview is on OR we're about to send a DMX frame.
+  if (mediaHandler.hasContent() && (ringGrid.previewEnabled || dmxTick)) {
     ringGrid.sampleColors();
   }
 
@@ -144,6 +176,15 @@ void draw() {
 
   // Phase 5: preview discs of the sampled colors (toggle 'C'), on top of overlay
   ringGrid.drawPreview();
+
+  // Phase 6: push one Art-Net frame on the throttle tick. Zero the buffer first
+  // so a cleared video (no content) blanks the ring instead of holding stale.
+  if (dmxTick) {
+    resetDMXData();
+    if (mediaHandler.hasContent()) ringGrid.writeToDMXBuffer(dmxData);
+    dmxSender.sendDMXData(dmxData);
+    lastDmxSendMillis = millis();
+  }
 
   // UI panel background + divider + FPS readout. ControlP5 draws its controls
   // on top automatically after draw() returns.
@@ -234,6 +275,10 @@ void keyPressed(KeyEvent event) {
     ringGrid.togglePreview();
     return;
   }
+  if (key == 'a' || key == 'A') {
+    toggleArtNet();
+    return;
+  }
 
   // ----- arrow / Cmd+arrow combos -----
   if (key == CODED) {
@@ -258,6 +303,29 @@ void keyPressed(KeyEvent event) {
 }
 
 // =============================================================
+// Art-Net (phase 6) — toggle send on/off, zero the DMX buffer
+// =============================================================
+
+void toggleArtNet() {
+  enableDMX = !enableDMX;
+  if (enableDMX) {
+    if (dmxSender == null) {                       // lazy create + connect once
+      dmxSender = new DMXSender(useBroadcast, targetIP, artNetPort, universe, subnet);
+      dmxSender.connect();
+    }
+    log("[artnet] ON -> " + (useBroadcast ? "broadcast" : targetIP)
+      + ", universe " + universe + ", subnet " + subnet
+      + " (" + (ringGrid.N * 3) + " channels active)");
+  } else {
+    log("[artnet] OFF (sender kept; press A to resume)");
+  }
+}
+
+void resetDMXData() {
+  java.util.Arrays.fill(dmxData, (byte) 0);
+}
+
+// =============================================================
 // Logging — routes to Processing console AND the UI console (once it exists)
 // =============================================================
 
@@ -274,6 +342,13 @@ void log(String message) {
 
 void exit() {
   log("[exit] shutting down");
+  // Art-Net blackout — zero all channels and send once so the ring goes dark.
+  if (enableDMX && dmxSender != null) {
+    resetDMXData();
+    dmxSender.sendDMXData(dmxData);
+    delay(100);                 // let the packet flush before tear-down
+    dmxSender.stop();
+  }
   if (mediaHandler != null) mediaHandler.clearMedia();
   super.exit();
 }
