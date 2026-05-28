@@ -108,9 +108,13 @@ void settings() {
   // Force logical resolution. Processing 4.5+ defaults to pixelDensity(2) on
   // Retina/high-DPI screens, which renders at 4x the pixels — heavy memory +
   // GPU pressure that aggravates the GStreamer video pipeline and tanks perf.
-  // pixelDensity(1) also keeps pixels[] coordinates 1:1 with logical coords,
-  // which Phase 5 (sampling) depends on. See contexts/99_gotchas.md.
-  pixelDensity(1);
+  // pixelDensity(1) also keeps pixels[] coordinates 1:1 with logical coords.
+  //
+  // DISABLED 2026-05-29: letting the display default (2 on Retina) render so the
+  // canvas looks crisp. sampleColors() is now density-aware (scales reads by
+  // pixelDensity), so Art-Net/preview stay correct at any density. RE-ENABLE the
+  // line below if the GStreamer freeze or a perf drop returns at density 2.
+  // pixelDensity(1);
 }
 
 void setup() {
@@ -140,8 +144,10 @@ void setup() {
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
+  // pixelDensity no longer has to be 1 — sampleColors() scales reads by it. A
+  // higher density just means a crisper display at more GPU/memory cost.
   if (pixelDensity != 1) {
-    logWarn("[setup] pixelDensity=" + pixelDensity + " (expected 1): sampling reads the WRONG pixels, so preview + Art-Net values are INVALID. Uncomment pixelDensity(1) in settings().");
+    log("[setup] pixelDensity=" + pixelDensity + " (high-DPI): display crisp, sampling is density-aware. Drop to pixelDensity(1) in settings() if perf / the GStreamer freeze returns.");
   }
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + nf(ringGrid.ringR, 0, 1) + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
@@ -425,8 +431,8 @@ void drawAdjustGuides() {
   float tx = vcx - 8;
   float lh = 15;
   text("scale: " + round(mediaHandler.videoScale * 100) + "%", tx, vcy - 8);
-  text("y: " + round(mediaHandler.videoY),                     tx, vcy - 8 - lh);
-  text("x: " + round(mediaHandler.videoX),                     tx, vcy - 8 - lh * 2);
+  text("y: " + round(mediaHandler.videoY), tx, vcy - 8 - lh);
+  text("x: " + round(mediaHandler.videoX), tx, vcy - 8 - lh * 2);
 
   popStyle();
 }
@@ -470,15 +476,15 @@ void saveConfig() {
 
   JSONObject v = new JSONObject();
   v.setString("lastPath", (mediaHandler != null && mediaHandler.currentPath != null) ? mediaHandler.currentPath : "");
-  v.setFloat("x",     mediaHandler != null ? mediaHandler.videoX     : 0);
-  v.setFloat("y",     mediaHandler != null ? mediaHandler.videoY     : 0);
+  v.setFloat("x", mediaHandler != null ? mediaHandler.videoX     : 0);
+  v.setFloat("y", mediaHandler != null ? mediaHandler.videoY     : 0);
   v.setFloat("scale", mediaHandler != null ? mediaHandler.videoScale : 1.0);
   root.setJSONObject("video", v);
 
   JSONObject r = new JSONObject();
   r.setInt("n", ringGrid.N);
-  r.setBoolean("gridEnabled",    ringGrid.gridEnabled);
-  r.setBoolean("labelsEnabled",  ringGrid.labelsEnabled);
+  r.setBoolean("gridEnabled", ringGrid.gridEnabled);
+  r.setBoolean("labelsEnabled", ringGrid.labelsEnabled);
   r.setBoolean("previewEnabled", ringGrid.previewEnabled);
   root.setJSONObject("ring", r);
 
@@ -500,7 +506,8 @@ void saveConfig() {
   try {
     saveJSONObject(root, CONFIG_PATH);           // creates data/ if needed
     logOk("[config] saved -> " + CONFIG_PATH);
-  } catch (Exception e) {
+  }
+  catch (Exception e) {
     logErr("[config] save failed: " + e.getMessage());
   }
 }
@@ -515,7 +522,8 @@ void loadConfig() {
   JSONObject root;
   try {
     root = loadJSONObject(f.getAbsolutePath());
-  } catch (Exception e) {
+  }
+  catch (Exception e) {
     logWarn("[config] couldn't read config.json — using defaults: " + e.getMessage());
     return;
   }
@@ -602,3 +610,4 @@ class Rect {
     this.h = h;
   }
 }
+

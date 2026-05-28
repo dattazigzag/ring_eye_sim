@@ -1,7 +1,16 @@
 {
     "cSpell.words": [
+        "arraycopy",
         "artnet",
+        "BCAST",
+        "bildspur",
         "keypress",
-        "println"
+        "millis",
+        "println",
+        "retarget",
+        "retargeted",
+        "textfields",
+        "Textlabel",
+        "unicasts"
     ]
 }

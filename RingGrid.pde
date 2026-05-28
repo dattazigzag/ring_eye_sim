@@ -218,14 +218,16 @@ class RingGrid {
   // -------------------------------------------------------------
 
   // Average the rendered video color inside each cell's inscribed circle into
-  // cellColors[]. Reads the sketch framebuffer directly via loadPixels() —
-  // relies on pixelDensity(1) (pixels[] is 1:1 with logical coords). MUST be
-  // called after the video is drawn but BEFORE drawOverlay(), otherwise we'd
-  // average our own red cell strokes. Uses bit-shift channel extraction (no
-  // red()/green()/blue() calls) and primitive accumulators to stay alloc-free.
+  // cellColors[]. Reads the sketch framebuffer directly via loadPixels().
+  // Density-aware: pixels[] is PHYSICAL (width*pixelDensity wide), so each
+  // logical sample coord is mapped to physical by *pixelDensity — at density 1
+  // it's a no-op (identical to the old path). MUST be called after the video is
+  // drawn but BEFORE drawOverlay(), otherwise we'd average our own red cell
+  // strokes. Bit-shift channel extraction + primitive accumulators (alloc-free).
   void sampleColors() {
-    loadPixels();                 // sketch framebuffer -> pixels[]
-    int sw = width;               // sketch (= pixels[]) width
+    loadPixels();                 // sketch framebuffer -> pixels[] (physical size)
+    int d  = pixelDensity;        // 1 on normal displays, 2 on Retina/high-DPI
+    int sw = pixelWidth;          // physical row stride of pixels[] (= width * d)
 
     // Clamp sampling to the canvas region so we never read the UI panel below.
     int minX = (int) canvas.x;
@@ -249,7 +251,7 @@ class RingGrid {
           if (dx * dx + dy * dy > r2) continue;   // inside the inscribed circle
           int x = ccx + dx;
           if (x < minX || x > maxX) continue;
-          int c = pixels[y * sw + x];
+          int c = pixels[(y * d) * sw + (x * d)];   // logical -> physical
           sumR += (c >> 16) & 0xFF;
           sumG += (c >> 8)  & 0xFF;
           sumB +=  c        & 0xFF;
