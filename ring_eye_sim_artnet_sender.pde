@@ -45,7 +45,7 @@ import mqtt.*;
 
 final int CANVAS_W = 480;
 final int CANVAS_H = 480;
-final int UI_H     = 300;   // panel taller than the video so the color controls + console fit (video area unchanged)
+final int UI_H     = 340;   // panel taller than the video so color + Art-Net + MQTT controls and the console fit (video area unchanged)
 final int SKETCH_W = CANVAS_W;
 final int SKETCH_H = CANVAS_H + UI_H;
 
@@ -101,11 +101,14 @@ int       lastAdjustMillis       = -100000;   // far in the past = hidden at sta
 
 // MQTT side-channel — publishes ring layout (N + universe/subnet) so the preview
 // receiver mirrors it live. Retained, so a receiver that connects later still
-// gets the current value. Optional: if no broker is up the sketch runs normally
-// (Art-Net is unaffected); see the connect() try/catch in setup().
+// gets the current value. Driven by the UI MQTT toggle (default ON); host/port
+// are editable only while the toggle is OFF. Optional: if no broker is up the
+// sketch runs normally (Art-Net is unaffected) — see startMQTT()'s try/catch.
 MQTTClient    mqtt;
 boolean       mqttReady          = false;
-final String  MQTT_BROKER        = "mqtt://localhost:1883";
+boolean       enableMQTT         = true;          // default on (UI toggle)
+String        mqttHost           = "localhost";   // editable when the toggle is OFF
+int           mqttPort           = 1883;          // default MQTT port
 final String  MQTT_TOPIC_CONFIG  = "ring/config";
 
 // =============================================================
@@ -156,15 +159,9 @@ void setup() {
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
 
-  // MQTT side-channel (optional). connect() blocks ~2 s then throws if no broker
-  // is reachable, so it's wrapped: Art-Net keeps working regardless. The retained
-  // config is (re)published from clientConnected(), which also fires on reconnect.
-  try {
-    mqtt = new MQTTClient(this);
-    mqtt.connect(MQTT_BROKER, "ring_eye_sim_server");
-  } catch (Exception e) {
-    logWarn("[mqtt] no broker at " + MQTT_BROKER + " — receiver won't auto-sync. Start mosquitto and relaunch. (Art-Net is unaffected.)");
-  }
+  // MQTT connect is driven by the UI MQTT toggle (default ON), which fires
+  // startMQTT() as the panel is built — see UserInterface.startMQTT(). Nothing
+  // to do here.
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
@@ -421,12 +418,17 @@ void resetDMXData() {
 // library ON THE MAIN THREAD via a post-draw() hook, so they're render-safe.
 // =============================================================
 
+// Broker URI from the editable host/port (UI fields).
+String mqttBrokerURI() {
+  return "mqtt://" + mqttHost + ":" + mqttPort;
+}
+
 // Fired on every (re)connect. Re-publish the retained config so a fresh broker
 // session always has the current value.
 void clientConnected() {
   mqttReady = true;
   publishRingConfig();
-  logOk("[mqtt] connected -> " + MQTT_BROKER + " (published " + MQTT_TOPIC_CONFIG + ")");
+  logOk("[mqtt] connected -> " + mqttBrokerURI() + " (published " + MQTT_TOPIC_CONFIG + ")");
 }
 
 void connectionLost() {
@@ -567,6 +569,16 @@ void saveConfig() {
   c.setFloat("brightness", colorPipeline.brightness);
   root.setJSONObject("color", c);
 
+  // MQTT side-channel — host/port + the enable toggle. Unlike Art-Net (target
+  // only, never auto-started), the on/off state IS persisted here: MQTT only
+  // publishes the ring layout to a local broker — no hardware is driven — so
+  // restoring the last choice on launch is harmless and matches its default-ON.
+  JSONObject m = new JSONObject();
+  m.setBoolean("enabled", enableMQTT);
+  m.setString("host", mqttHost);
+  m.setInt("port", mqttPort);
+  root.setJSONObject("mqtt", m);
+
   try {
     saveJSONObject(root, CONFIG_PATH);           // creates data/ if needed
     logOk("[config] saved -> " + CONFIG_PATH);
@@ -619,6 +631,16 @@ void loadConfig() {
     artNetPort   = a.getInt("port", artNetPort);
     universe     = a.getInt("universe", universe);
     subnet       = a.getInt("subnet", subnet);
+  }
+
+  // MQTT: restore host/port + the enable toggle. These globals are read when the
+  // UI builds (after loadConfig) — the host/port fields show them, and the
+  // toggle's initial setValue fires startMQTT/stopMQTT with the restored host.
+  if (root.hasKey("mqtt")) {
+    JSONObject m = root.getJSONObject("mqtt");
+    enableMQTT = m.getBoolean("enabled", enableMQTT);
+    mqttHost   = m.getString("host", mqttHost);
+    mqttPort   = m.getInt("port", mqttPort);
   }
 
   // Video: load only if the saved file still exists, then re-apply the saved

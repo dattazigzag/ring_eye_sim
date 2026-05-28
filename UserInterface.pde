@@ -63,6 +63,11 @@ class UserInterface {
   Toggle    broadcastToggle;
   Toggle    dmxToggle;            // START/STOP DMX (caption flips with state)
 
+  // MQTT controls — host/port editable only while the toggle is OFF
+  Textfield mqttHostField;
+  Textfield mqttPortField;
+  Toggle    mqttToggle;          // MQTT on/off (default on)
+
   // Color pipeline controls (phase 7)
   Slider    brightnessSlider;
   Textfield gammaField;
@@ -312,8 +317,51 @@ class UserInterface {
       });
     dmxToggle.setCaptionLabel("START DMX");
 
+    // ===== TOP-RIGHT: MQTT cluster (below the Art-Net cluster) =====
+    int mqLabelY = y + 116;
+    int mqRowY   = y + 138;             // MQTT toggle + BROKER IP + PORT
+
+    cp5.addTextlabel("mqttLabel")
+      .setText("MQTT SYNC")
+      .setPosition(anX, mqLabelY)
+      .setColor(textColor);
+
+    // Host field created BEFORE the toggle so the toggle's initial setValue()
+    // can lock/dim it via updateMqttFieldsLock() without a null ref (same
+    // pattern as ipField / broadcastToggle).
+    mqttHostField = cp5.addTextfield("mqttHostField")
+      .setPosition(anX + 32, mqRowY)
+      .setSize(110, elementHeight)
+      .setText(mqttHost)
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor);
+    mqttHostField.setCaptionLabel("BROKER IP");
+
+    mqttPortField = cp5.addTextfield("mqttPortField")
+      .setPosition(anX + 150, mqRowY)
+      .setSize(48, elementHeight)
+      .setText(str(mqttPort))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    mqttPortField.setCaptionLabel("PORT");
+
+    mqttToggle = cp5.addToggle("mqttToggle")
+      .setPosition(anX, mqRowY)
+      .setSize(elementHeight, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          if (event.getController().getValue() > 0) startMQTT();
+          else                                      stopMQTT();
+        }
+      });
+    mqttToggle.setCaptionLabel("ENABLE");
+    mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
+
     // ===== Console rect (full width, bottom) =====
-    int hDivY = y + 148;                // horizontal separator above console (clears the color-control rows)
+    int hDivY = y + 184;                // horizontal separator above console (clears the color + Art-Net + MQTT rows)
     consoleX = col1;
     consoleY = hDivY + 6;
     consoleW = width - padding * 2;
@@ -355,7 +403,9 @@ class UserInterface {
         || (portField     != null && portField.isFocus())
         || (subnetField   != null && subnetField.isFocus())
         || (universeField != null && universeField.isFocus())
-        || (gammaField    != null && gammaField.isFocus());
+        || (gammaField    != null && gammaField.isFocus())
+        || (mqttHostField != null && mqttHostField.isFocus())
+        || (mqttPortField != null && mqttPortField.isFocus());
   }
 
   // -------------------------------------------------------------
@@ -423,6 +473,54 @@ class UserInterface {
     if (dmxToggle != null) dmxToggle.setValue(enableDMX ? 1 : 0);
     uiSyncing = false;
     updateDmxCaption();
+  }
+
+  // -------------------------------------------------------------
+  // MQTT — the toggle (re)connects / disconnects; host & port are editable only
+  // while it's OFF (locked + dimmed when ON, same model as the broadcast IP).
+  // -------------------------------------------------------------
+
+  // Lock + dim (or unlock + restore) a text field. Shared by the MQTT fields.
+  void lockField(Textfield f, boolean locked) {
+    if (f == null) return;
+    f.setLock(locked);
+    f.setColorBackground(locked ? disabledColor : color(60));
+    f.setColor(locked ? dimmedTextColor : textColor);
+  }
+
+  void updateMqttFieldsLock() {
+    lockField(mqttHostField, enableMQTT);   // ON = locked, OFF = editable
+    lockField(mqttPortField, enableMQTT);
+  }
+
+  // Pull host/port from the fields and (re)connect. clientConnected() then flips
+  // mqttReady on and publishes the retained config. Non-fatal: a missing broker
+  // just logs a warning — Art-Net is unaffected. (connect() blocks ~2 s then
+  // throws when there's no broker.)
+  void startMQTT() {
+    mqttHost = mqttHostField.getText().trim();
+    if (mqttHost.length() == 0) mqttHost = "localhost";
+    mqttPort = parseInt(mqttPortField.getText());
+    enableMQTT = true;
+    updateMqttFieldsLock();
+    try {
+      if (mqtt == null) mqtt = new MQTTClient(parent);
+      else { try { mqtt.disconnect(); } catch (Exception ignore) { } }   // drop old session first
+      mqttReady = false;
+      mqtt.connect(mqttBrokerURI(), "ring_eye_sim_server");
+      logOk("[mqtt] connecting -> " + mqttBrokerURI());
+    } catch (Exception e) {
+      mqttReady = false;
+      logWarn("[mqtt] no broker at " + mqttBrokerURI() + " — toggle ENABLE off/on to retry. (Art-Net unaffected.)");
+    }
+  }
+
+  void stopMQTT() {
+    enableMQTT = false;
+    updateMqttFieldsLock();
+    if (mqtt != null) { try { mqtt.disconnect(); } catch (Exception ignore) { } }
+    mqttReady = false;
+    log("[mqtt] disconnected (sync off)");
   }
 
   // -------------------------------------------------------------

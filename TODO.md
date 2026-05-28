@@ -1,12 +1,7 @@
 # TODO
 
 ## In progress
-- [ ] **Preview receiver sync (MQTT side-channel)** — `tools/tailored_dmx_receiver`
-  - Receiver renders a NeoPixel-ring twin of the server: discs + index labels + faint ring outline, mirroring server geometry (`ringR = w*350/1024`, same cellSize formula, LED 0 at 12 o'clock CW)
-  - PIXELS over Art-Net (post gamma/brightness → accurate hardware preview); LAYOUT (`{n, universe, subnet}`) over MQTT topic `ring/config` (retained, qos 1)
-  - Server publishes on connect + on N change (slider) + on Art-Net retarget (`startDMX`); MQTT is optional/non-fatal (Art-Net unaffected if no broker)
-  - preceq: local mosquitto (`brew install mosquitto` → `brew services start mosquitto`). Start order: mosquitto → server → receiver. Receiver key: `L` toggles labels
-  - Future hook: same broker can carry video-trigger / control topics later
+- (nothing in flight)
 
 ## Up next
 - (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
@@ -18,6 +13,14 @@
 - [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
 
 ## Done
+- [x] **Preview receiver sync (MQTT side-channel)** ✓ tested working 2026-05-29 — `tools/tailored_dmx_receiver`
+  - Receiver renders a NeoPixel-ring twin of the server: discs + index labels + faint ring outline, mirroring server geometry (`ringR = w*350/1024`, same cellSize formula, LED 0 at 12 o'clock CW)
+  - PIXELS over Art-Net (post gamma/brightness → accurate hardware preview); LAYOUT (`{n, universe, subnet}`) over MQTT topic `ring/config` (retained, qos 1)
+  - Server publishes on connect + on N change (slider) + on Art-Net retarget (`startDMX`); MQTT is optional/non-fatal (Art-Net unaffected if no broker). `messageReceived` is an empty stub the library's callback lookup requires
+  - Joël Gähwiler's MQTT library (Paho-based); subscription in `clientConnected()` so it survives reconnects
+  - prereq: local mosquitto (`brew install mosquitto` → `brew services start mosquitto`). Start order: mosquitto → server → receiver. Receiver key: `L` toggles labels
+  - **Config persistence added 2026-05-29**: `mqtt` block (`enabled`/`host`/`port`) now saved + restored alongside the others. Unlike Art-Net (target only, never auto-started), the MQTT on/off state IS persisted — it only publishes layout to a local broker, no hardware driven, so it's harmless and matches its default-ON. Restored in `loadConfig()` before the UI builds → host/port fields show the values and the toggle's initial `setValue` fires `startMQTT`/`stopMQTT`
+  - Future hook: same broker can carry video-trigger / control topics later
 - [x] **pixelDensity 2 (high-DPI) + density-aware sampling** ✓ tested working 2026-05-29 (display crisp, Art-Net correct)
   - `sampleColors()` reads `pixels[(y*d)*pixelWidth + (x*d)]` (`d = pixelDensity`) — correct at any density; d=1 is the old 1:1 path
   - `pixelDensity(1)` commented out in `settings()`; startup "INVALID" warning softened to an info line. Re-enable the line if the GStreamer freeze / a perf drop returns (sampler works either way)
