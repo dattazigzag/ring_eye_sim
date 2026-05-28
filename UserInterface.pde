@@ -1,12 +1,13 @@
 // =============================================================
 // UserInterface — ControlP5 panel below the canvas
 // =============================================================
-// Phase 4 (this version):
+// Phase 4 (+ patch):
 //   - Panel background + top divider
 //   - OPEN VIDEO button (mirrors the 'O' key file picker)
 //   - GRID toggle (mirrors 'G'), LABELS toggle (mirrors 'L')
 //   - PIXELS (N) slider, 8–60 snapped to even (mirrors RingGrid.setN)
 //   - Console Textarea (auto-scroll, buffer-limit clear) — log() routes here
+//   - FPS readout drawn as text (no more console spam)
 //
 // Colors / styling follow the existing humanoid_face_twin project:
 //   accent cyan = (57,184,213), bg = (25), text = (220).
@@ -46,6 +47,9 @@ class UserInterface {
 
   // Guards programmatic toggle updates from firing the change callbacks
   boolean uiSyncing = false;
+
+  // FPS readout (updated each frame from the main sketch)
+  float displayFps = 0;
 
   UserInterface(PApplet parent, int x, int y, int width, int height) {
     this.parent = parent;
@@ -111,8 +115,6 @@ class UserInterface {
     labelsToggle.setCaptionLabel("LABELS");
 
     // ----- Row 2: PIXELS (N) slider -----
-    // 8..60 with tick marks every 2 → 27 stops. snapToTickMarks keeps the
-    // value on the even grid; setN() also snaps defensively.
     int nStops = (RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1;   // 27
 
     nSlider = cp5.addSlider("nSlider")
@@ -162,7 +164,6 @@ class UserInterface {
   // Keyboard -> UI sync
   // -------------------------------------------------------------
 
-  // Push current RingGrid toggle state into the UI without firing callbacks.
   void syncToggles() {
     uiSyncing = true;
     gridToggle.setValue(ringGrid.gridEnabled ? 1 : 0);
@@ -170,9 +171,16 @@ class UserInterface {
     uiSyncing = false;
   }
 
-  // Push current RingGrid N into the slider without firing the callback.
   void syncN() {
-    nSlider.setValue(ringGrid.N);   // value matches → setN() early-returns anyway
+    nSlider.setValue(ringGrid.N);
+  }
+
+  // -------------------------------------------------------------
+  // FPS readout
+  // -------------------------------------------------------------
+
+  void setFps(float fps) {
+    displayFps = fps;
   }
 
   // -------------------------------------------------------------
@@ -195,8 +203,8 @@ class UserInterface {
   }
 
   // -------------------------------------------------------------
-  // Render — panel background + top divider. ControlP5 draws its own
-  // controls on top automatically (post-draw hook).
+  // Render — panel background + top divider + FPS text. ControlP5 draws its
+  // own controls on top automatically (post-draw hook).
   // -------------------------------------------------------------
 
   void render() {
@@ -208,5 +216,11 @@ class UserInterface {
     strokeWeight(1);
     line(x, y, x + width, y);
     noStroke();
+
+    // FPS readout — bottom-left of the panel, clear of all controls
+    fill(textColor);
+    textAlign(LEFT, BOTTOM);
+    textSize(12);
+    text("FPS: " + nf(displayFps, 0, 1), x + padding, y + height - padding);
   }
 }

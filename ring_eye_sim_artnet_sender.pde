@@ -1,15 +1,9 @@
 // =============================================================
 // Ring Eye Sim — Art-Net Sender
-// Phase 4: UI panel + N slider + console (ControlP5)
+// Phase 4 (+ patch): UI panel + N slider + console; pixelDensity(1);
+//                    FPS readout on the UI instead of console
 // =============================================================
 // See contexts/02_build_plan.md for full phase plan.
-//
-// Phase 4 adds (on top of phase 3):
-//   - UserInterface panel in the 200px strip below the canvas
-//   - OPEN VIDEO button, GRID / LABELS toggles, PIXELS (N) slider
-//   - Console Textarea — log() now writes to console AND the UI
-//   - N is now adjustable (8–60, even) via the slider
-//   - G / L keys stay in sync with their UI toggles
 //
 // Hotkeys (cumulative):
 //   O                    open file picker
@@ -76,6 +70,13 @@ void settings() {
   } else {
     size(SKETCH_W, SKETCH_H);
   }
+
+  // Force logical resolution. Processing 4.5+ defaults to pixelDensity(2) on
+  // Retina/high-DPI screens, which renders at 4x the pixels — heavy memory +
+  // GPU pressure that aggravates the GStreamer video pipeline and tanks perf.
+  // pixelDensity(1) also keeps pixels[] coordinates 1:1 with logical coords,
+  // which Phase 5 (sampling) depends on. See contexts/99_gotchas.md.
+  pixelDensity(1);
 }
 
 void setup() {
@@ -97,7 +98,7 @@ void setup() {
   drop         = new SDrop(this);
 
   log("[setup] ring_eye_sim_artnet_sender started");
-  log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", ui region: " + UI_H + "px below");
+  log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
   log("[setup] renderer: " + (ENABLE_P3D ? "P3D (use O for file picker)" : "default Java2D"));
   log("[setup] ring: N=" + ringGrid.N + ", R=" + RingGrid.RING_R + ", cellSize=" + nf(ringGrid.cellSize(), 0, 1));
   log("[setup] keys: O open, SPACE pause/play, arrows move (Shift=10x),");
@@ -129,14 +130,10 @@ void draw() {
   // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
   ringGrid.drawOverlay();
 
-  // UI panel background + divider (masks any video overflow into the strip).
-  // ControlP5 draws its controls on top automatically after draw() returns.
+  // UI panel background + divider + FPS readout. ControlP5 draws its controls
+  // on top automatically after draw() returns.
+  ui.setFps(frameRate);
   ui.render();
-
-  // Framerate diagnostic — log every ~2 seconds (60 frames at 30 fps target).
-  if (frameCount > 0 && frameCount % 60 == 0) {
-    log("[perf] frameRate=" + nf(frameRate, 0, 1));
-  }
 
   // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
   // See: https://github.com/processing/processing-video/issues/207
