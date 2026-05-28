@@ -76,7 +76,7 @@ void settings() {
   // GPU pressure that aggravates the GStreamer video pipeline and tanks perf.
   // pixelDensity(1) also keeps pixels[] coordinates 1:1 with logical coords,
   // which Phase 5 (sampling) depends on. See contexts/99_gotchas.md.
-  //pixelDensity(1);
+  pixelDensity(1);
 }
 
 void setup() {
@@ -162,9 +162,9 @@ void videoFileSelected(File selection) {
 
 void dropEvent(DropEvent event) {
   log("[drop] event received: isFile=" + event.isFile()
-        + ", isImage=" + event.isImage()
-        + ", isURL=" + event.isURL()
-        + ", x=" + event.x() + ", y=" + event.y());
+    + ", isImage=" + event.isImage()
+    + ", isURL=" + event.isURL()
+    + ", x=" + event.x() + ", y=" + event.y());
 
   if (!event.isFile()) {
     log("[drop] not a file — ignoring");
@@ -266,6 +266,9 @@ void exit() {
 class Rect {
   float x, y, w, h;
   Rect(float x, float y, float w, float h) {
-    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
   }
 }

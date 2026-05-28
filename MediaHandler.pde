@@ -14,6 +14,10 @@
 //   humanoid_face_twin/Processing/ArtNetSender project uses for smooth
 //   playback under P3D on this machine.
 //
+// Watchdog patch (this version): if the GStreamer AppSink stops delivering
+//   frames (the "Native object has been disposed" freeze), auto-reload the
+//   same file. Masks the upstream race; see contexts/99_gotchas.md.
+//
 // Future phases:
 //   - phase 5: sample from processedImage in sampleColors()
 //   - phase 8: state restoration from config.json
@@ -37,6 +41,19 @@ class MediaHandler {
   // Scale clamp (keep video visible but not absurd)
   static final float MIN_SCALE = 0.05;
   static final float MAX_SCALE = 10.0;
+
+  // ---- watchdog (auto-recover from the GStreamer AppSink freeze) ----
+  // When the AppSink wedges, available() stops returning true so no new frame
+  // arrives. We track the time of the last successful read(); if the video
+  // should be playing but no frame has landed for WATCHDOG_TIMEOUT_MS, tear
+  // down and reload the same file. shouldBePlaying gates this so a user pause
+  // (legitimately no frames) never triggers a reload.
+  static final int WATCHDOG_TIMEOUT_MS  = 3000;  // no-frame stall before reload
+  static final int WATCHDOG_MAX_RELOADS = 5;     // consecutive reloads before giving up
+  String  currentPath        = null;             // last loaded file (for reload)
+  int     lastFrameMillis    = 0;                // millis() of last successful read()
+  boolean shouldBePlaying    = false;            // playback intent — gates the watchdog
+  int     consecutiveReloads = 0;                // reset to 0 on any successful frame
 
   MediaHandler(PApplet parent, Canvas canvas) {
     this.parent = parent;
@@ -85,6 +102,10 @@ class MediaHandler {
       // have to call loop() again — play() on resume is enough.
       loadedVideo.loop();
       isVideo = true;
+      currentPath        = filePath;   // remember for watchdog reload
+      shouldBePlaying    = true;
+      lastFrameMillis    = millis();   // start the stall timer fresh
+      consecutiveReloads = 0;
       resetTransform();             // each new video lands centered + fit
       log("[media] loaded video: " + filePath);
     } catch (Exception e) {
@@ -102,7 +123,55 @@ class MediaHandler {
     if (isVideo && loadedVideo != null && loadedVideo.available()) {
       loadedVideo.read();
       updateProcessedImage();
-      currentFrame = processedImage;
+      currentFrame       = processedImage;
+      lastFrameMillis    = millis();   // watchdog: a frame landed
+      consecutiveReloads = 0;          // pipeline is healthy again
+    }
+    checkWatchdog();
+  }
+
+  // -------------------------------------------------------------
+  // Watchdog — detect the GStreamer freeze and reload the file.
+  // -------------------------------------------------------------
+
+  void checkWatchdog() {
+    if (!isVideo || !shouldBePlaying || loadedVideo == null || currentPath == null) return;
+    if (millis() - lastFrameMillis <= WATCHDOG_TIMEOUT_MS) return;
+
+    if (consecutiveReloads >= WATCHDOG_MAX_RELOADS) {
+      log("[watchdog] " + WATCHDOG_MAX_RELOADS + " reloads without recovery — giving up. Reload manually with O.");
+      shouldBePlaying = false;   // stop hammering reload
+      return;
+    }
+    reloadCurrentVideo();
+  }
+
+  // Tear down the (likely wedged) Movie and reload the same file. Transform
+  // state is preserved; playback restarts from the start via a fresh loop()
+  // rather than a jump() — an explicit seek is what triggers the
+  // gst_segment_clip assertion. processedImage/currentFrame are kept so the
+  // canvas keeps showing the last good frame until new frames arrive.
+  void reloadCurrentVideo() {
+    consecutiveReloads++;
+    log("[watchdog] no frame for >" + WATCHDOG_TIMEOUT_MS + "ms — reloading ("
+          + consecutiveReloads + "/" + WATCHDOG_MAX_RELOADS + "): " + currentPath);
+
+    Movie old = loadedVideo;
+    loadedVideo = null;
+    if (old != null) {
+      try { old.stop(); } catch (Exception e) { /* native may already be disposed */ }
+    }
+
+    try {
+      loadedVideo = new Movie(parent, currentPath);
+      loadedVideo.loop();
+      isVideo         = true;
+      shouldBePlaying = true;
+      lastFrameMillis = millis();      // restart the stall timer
+    } catch (Exception e) {
+      log("[watchdog] reload failed: " + e.getMessage());
+      isVideo     = false;
+      loadedVideo = null;
     }
   }
 
@@ -149,6 +218,7 @@ class MediaHandler {
     log("[media] toggle: isPlaying=" + playingNow);
     if (playingNow) {
       loadedVideo.pause();
+      shouldBePlaying = false;     // user pause — watchdog stands down
       log("[media] -> paused");
     } else {
       // Processing's Movie.pause() reference:
@@ -157,6 +227,8 @@ class MediaHandler {
       // The internal loop flag set by loadVideoFile()'s .loop() persists,
       // so play() resumes AND the video keeps looping at end-of-video.
       loadedVideo.play();
+      shouldBePlaying = true;
+      lastFrameMillis = millis();  // don't let the paused gap trip the watchdog
       log("[media] -> resumed");
     }
   }
@@ -193,9 +265,12 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
-    processedImage = null;
-    currentFrame   = null;
-    isVideo        = false;
+    processedImage     = null;
+    currentFrame       = null;
+    isVideo            = false;
+    shouldBePlaying    = false;   // watchdog off until next load
+    currentPath        = null;
+    consecutiveReloads = 0;
   }
 
   // -------------------------------------------------------------
