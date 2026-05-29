@@ -1,12 +1,15 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 12a** — Dual-universe Art-Net SEND (per-container `DMXSender`; right = the UNIV field, left = right+1). No UI/config change. **Code written 2026-05-29 — awaiting user test.**
-  - Files: `VideoContainer.pde` (`sender` + `universe`, `startSender`/`stopSender`/`blackout`/`writeAndSend`); `ring_eye_sim_artnet_sender.pde` (removed single `dmxSender`; DMX tick + `exit()` loop both); `UserInterface.pde` (`startDMX`/`stopDMX` build + blackout both).
+- [ ] **Phase 12b** — Art-Net UI rework + full panel relayout. **Code written 2026-05-29 — awaiting user test.**
+  - Banded panel (window grows to 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent), each eye owning FLIP H/V + UNIVERSE + IP; full-width console below.
+  - Per-eye ownership: each eye column owns FLIP + UNIVERSE + IP; only BROADCAST/PORT/SUBNET/START are shared. BCAST locks BOTH eye IP fields.
+  - Per-eye target persistence: nested `artnet.{right,left}.{ip,universe}` + shared `{useBroadcast,port,subnet}`; legacy flat `targetIP`/`universe` falls back onto the right (main) eye.
+  - Files: `ring_eye_sim_artnet_sender.pde` (`UI_H` 440; per-eye `universe` defaults; nested save/load; `publishRingConfig` → right eye; removed dead `targetIP`/`universe` globals); `VideoContainer.pde` (`targetIP` field); `UserInterface.pde` (full `setupControls` relayout, `updateIPField` both eyes, `startDMX` per-eye, `isTextfieldFocused`, `render` separators).
 
 ## Up next — two-container build (right=main + left=clone)
-- [ ] **Phase 12b** — Art-Net UI rework: explicit per-container RIGHT/LEFT IP + UNIV, 960 panel relay out (left | mirror | art-net | mqtt), per-container target persistence (folds in the art-net part of 13).
-- [ ] **Phase 13** — Config persistence for mirror flags (+ any dual-universe bits not covered by 12b).
+- [x] **Phase 12a** — Dual-universe Art-Net SEND (per-container `DMXSender`). Tested + committed 2026-05-29. (Per-eye left universe is now its own UNIVERSE field, set in 12b — no longer right+1.)
+- [ ] **Phase 13** — Config persistence for mirror flags (per-eye H/V). The art-net per-eye persistence is already folded into 12b.
 
 See `contexts/02_build_plan.md` for full scope + test steps per phase.
 

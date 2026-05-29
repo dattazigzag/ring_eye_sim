@@ -45,7 +45,7 @@ import mqtt.*;
 
 final int CANVAS_W = 480;
 final int CANVAS_H = 480;
-final int UI_H     = 340;   // panel taller than the video so color + Art-Net + MQTT controls and the console fit (video area unchanged)
+final int UI_H     = 440;   // banded panel (phase 12b): shared row band + per-eye band (left | right) + console
 final int NUM_CONTAINERS = 2;                    // right (main) + left (clone)
 final int SKETCH_W = CANVAS_W * NUM_CONTAINERS;  // 960 — two 480 canvases side by side
 final int SKETCH_H = CANVAS_H + UI_H;
@@ -86,11 +86,10 @@ SDrop            drop;
 
 byte[]  dmxData      = new byte[512];      // one DMX universe, zeroed each send
 boolean enableDMX    = false;              // toggled with 'A'
-boolean useBroadcast = true;               // broadcast vs unicast
-String  targetIP     = "255.255.255.255";          // broadcast address
+boolean useBroadcast = true;               // broadcast vs unicast (shared transport)
 int     artNetPort   = 6454;               // standard Art-Net port
-int     universe     = 0;
 int     subnet       = 0;
+// Per-eye universe + target IP live on the VideoContainers (phase 12b).
 
 // Send throttle — frameRate() is uncapped (~56 fps), so the Art-Net send is
 // capped to ~30 Hz on its own millis timer, decoupled from the draw rate, so
@@ -157,6 +156,8 @@ void setup() {
   leftContainer  = new VideoContainer(leftCanvas,  new RingGrid(leftCanvas),  false, "left");
   rightContainer = new VideoContainer(rightCanvas, new RingGrid(rightCanvas), true,  "right");
   containers     = new VideoContainer[] { leftContainer, rightContainer };
+  rightContainer.universe = 0;              // main eye -> universe 0 (default; config may override)
+  leftContainer.universe  = 1;              // clone eye -> universe 1
   ringGrid       = rightContainer.ring;     // MAIN alias (see globals)
   colorPipeline = new ColorPipeline();      // before loadConfig + UI
 
@@ -231,9 +232,9 @@ void draw() {
   // 3) Overlay + preview discs for both rings, on top of the video.
   for (VideoContainer c : containers) c.drawRing(colorPipeline);
 
-  // 4) Phase 12a: on the tick, each container writes ITS ring and sends on ITS
-  // universe (right = UNIV field, left = right+1). Each zeroes the shared
-  // scratch first so a cleared video blanks both rings.
+  // 4) Phase 12b: on the tick, each container writes ITS ring and sends on ITS
+  // own universe + target IP (set from that eye's column fields). Each zeroes the
+  // shared scratch first so a cleared video blanks both rings.
   if (dmxTick) {
     boolean has = (frame != null);
     for (VideoContainer c : containers) c.writeAndSend(dmxData, colorPipeline, has);
@@ -487,7 +488,7 @@ void publishRingConfig() {
   if (mqtt == null || !mqttReady) return;
   JSONObject j = new JSONObject();
   j.setInt("n",        ringGrid.N);
-  j.setInt("universe", universe);
+  j.setInt("universe", rightContainer.universe);   // tester mirrors the MAIN/right eye
   j.setInt("subnet",   subnet);
   try {
     mqtt.publish(MQTT_TOPIC_CONFIG, j.toString(), 1, true);   // qos 1, retained
@@ -594,12 +595,19 @@ void saveConfig() {
   root.setJSONObject("ring", r);
 
   // Art-Net target only — NOT the on/off state (never auto-start on launch).
+  // Phase 12b: shared transport + nested per-eye {ip, universe}.
   JSONObject a = new JSONObject();
   a.setBoolean("useBroadcast", useBroadcast);
-  a.setString("targetIP", targetIP);
   a.setInt("port", artNetPort);
-  a.setInt("universe", universe);
   a.setInt("subnet", subnet);
+  JSONObject ar = new JSONObject();
+  ar.setString("ip", rightContainer.targetIP);
+  ar.setInt("universe", rightContainer.universe);
+  JSONObject al = new JSONObject();
+  al.setString("ip", leftContainer.targetIP);
+  al.setInt("universe", leftContainer.universe);
+  a.setJSONObject("right", ar);
+  a.setJSONObject("left", al);
   root.setJSONObject("artnet", a);
 
   JSONObject c = new JSONObject();
@@ -663,13 +671,26 @@ void loadConfig() {
   }
 
   // Art-Net: restore the target config only — leave sending OFF (opt-in via A).
+  // Phase 12b: shared transport + nested per-eye {ip, universe}; legacy flat
+  // targetIP/universe falls back onto the right (main) eye.
   if (root.hasKey("artnet")) {
     JSONObject a = root.getJSONObject("artnet");
     useBroadcast = a.getBoolean("useBroadcast", useBroadcast);
-    targetIP     = a.getString("targetIP", targetIP);
     artNetPort   = a.getInt("port", artNetPort);
-    universe     = a.getInt("universe", universe);
     subnet       = a.getInt("subnet", subnet);
+    if (a.hasKey("right")) {
+      JSONObject ar = a.getJSONObject("right");
+      rightContainer.targetIP = ar.getString("ip", rightContainer.targetIP);
+      rightContainer.universe = ar.getInt("universe", rightContainer.universe);
+    } else {                                   // legacy flat schema -> right eye
+      rightContainer.targetIP = a.getString("targetIP", rightContainer.targetIP);
+      rightContainer.universe = a.getInt("universe", rightContainer.universe);
+    }
+    if (a.hasKey("left")) {
+      JSONObject al = a.getJSONObject("left");
+      leftContainer.targetIP = al.getString("ip", leftContainer.targetIP);
+      leftContainer.universe = al.getInt("universe", leftContainer.universe);
+    }
   }
 
   // MQTT: restore host/port + the enable toggle. These globals are read when the

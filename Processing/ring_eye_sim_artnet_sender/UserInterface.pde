@@ -55,13 +55,13 @@ class UserInterface {
   Toggle labelsToggle;
   Toggle previewToggle;
 
-  // Art-Net controls (phase 6b)
-  Textfield ipField;
+  // Art-Net controls — shared transport (phase 6b) + per-eye target (phase 12b)
   Textfield portField;
   Textfield subnetField;
-  Textfield universeField;
   Toggle    broadcastToggle;
   Toggle    dmxToggle;            // START/STOP DMX (caption flips with state)
+  Textfield rUnivField, lUnivField;   // per-eye universe (right=main, left=clone)
+  Textfield rIpField,   lIpField;     // per-eye unicast IP (locked under broadcast)
 
   // MQTT controls — host/port editable only while the toggle is OFF
   Textfield mqttHostField;
@@ -110,14 +110,18 @@ class UserInterface {
     cp5.setColorBackground(color(50));
     cp5.setColorActive(accentColor);
 
-    int col1 = x + padding;
+    int col1  = x + padding;            // gutter: row tags + console
+    int chipX = x + 104;                // shared-band controls start after the tag gutter
 
-    // ===== TOP-LEFT: file + toggles row, slider row =====
-    int row1Y = y + padding;            // button + GRID/LABELS/PREVIEW
-    int row2Y = row1Y + 38;             // N slider
+    // ===== SHARED band: row1 = source/view, row2 = color =====
+    int row1Y = y + 34;                 // open video + grid/labels/preview + N
+    int row2Y = y + 72;                 // bright + gamma + mode
+
+    cp5.addTextlabel("tagSource").setText("SOURCE / VIEW").setPosition(col1, row1Y + 5).setColor(textColor);
+    cp5.addTextlabel("tagColor").setText("COLOR").setPosition(col1, row2Y + 5).setColor(textColor);
 
     cp5.addButton("openVideoBtn")
-      .setPosition(col1, row1Y)
+      .setPosition(chipX, row1Y)
       .setSize(84, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
@@ -125,7 +129,7 @@ class UserInterface {
       });
     cp5.getController("openVideoBtn").setCaptionLabel("OPEN VIDEO");
 
-    int togX     = col1 + 96;           // toggles start just right of the button
+    int togX     = chipX + 96;          // toggles start just right of the button
     int togPitch = 46;                  // tight, grouped spacing
 
     gridToggle = cp5.addToggle("gridToggle")
@@ -170,7 +174,7 @@ class UserInterface {
     // N slider — shortened; caption to the RIGHT; fill always visible (accent
     // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
-      .setPosition(col1, row2Y)
+      .setPosition(chipX + 286, row1Y)
       .setSize(108, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
       .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
@@ -190,12 +194,9 @@ class UserInterface {
       .setText("PIXELS (N)")
       .setColor(textColor);
 
-    // ----- Color pipeline (phase 7): BRIGHT % + GAMMA, then MODE cycle -----
-    int row3Y = row2Y + 38;             // brightness slider + gamma field
-    int row4Y = row3Y + 36;             // mode cycle button (clears the GAMMA field's caption)
-
+    // ----- Color pipeline (phase 7): BRIGHT % + GAMMA + MODE on the color row -----
     brightnessSlider = cp5.addSlider("brightnessSlider")
-      .setPosition(col1, row3Y)
+      .setPosition(chipX, row2Y)
       .setSize(108, elementHeight)
       .setRange(0, 100)
       .setValue(colorPipeline.brightness * 100.0)
@@ -215,7 +216,7 @@ class UserInterface {
       .setColor(textColor);
 
     gammaField = cp5.addTextfield("gammaField")
-      .setPosition(col1 + 178, row3Y)
+      .setPosition(chipX + 216, row2Y)
       .setSize(40, elementHeight)
       .setAutoClear(false)                          // keep the text after Enter (default blanks it)
       .setText(nf(colorPipeline.gamma, 1, 2))
@@ -233,8 +234,8 @@ class UserInterface {
     gammaField.setCaptionLabel("GAMMA");
 
     modeButton = cp5.addButton("modeButton")
-      .setPosition(col1, row4Y)
-      .setSize(150, elementHeight)
+      .setPosition(chipX + 286, row2Y)
+      .setSize(160, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
@@ -244,30 +245,24 @@ class UserInterface {
       });
     modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
 
-    // ===== TOP-RIGHT: Art-Net cluster =====
-    sepX         = x + 242;             // vertical separator between L / R
-    int anX      = sepX + 10;           // right region left edge
-    int anLabelY = row1Y;
-    int anRow1Y  = row1Y + 22;          // BCAST + IP + PORT
-    int anRow2Y  = anRow1Y + 36;        // SUBNET + UNIV + START/STOP
+    // ===== SHARED band: row3 = ART-NET transport (bcast / port / subnet / start) =====
+    int row3Y = y + 110;
+    cp5.addTextlabel("tagArtnet").setText("ART-NET").setPosition(col1, row3Y + 5).setColor(textColor);
 
-    cp5.addTextlabel("artnetLabel")
-      .setText("ARTNET DMX")
-      .setPosition(anX, anLabelY)
-      .setColor(textColor);
-
-    // IP field is created BEFORE the broadcast toggle so the toggle's initial
-    // setValue() can dim/lock it through updateIPField() without a null ref.
-    ipField = cp5.addTextfield("ipField")
-      .setPosition(anX + 32, anRow1Y)
-      .setSize(110, elementHeight)
-      .setText(targetIP)
-      .setColor(textColor)
-      .setColorCaptionLabel(textColor);
-    ipField.setCaptionLabel("TARGET IP");
+    broadcastToggle = cp5.addToggle("broadcastToggle")
+      .setPosition(chipX, row3Y)
+      .setSize(elementHeight, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          useBroadcast = event.getController().getValue() > 0;
+          updateIPField();                       // locks/unlocks BOTH eye IP fields
+        }
+      });
+    broadcastToggle.setCaptionLabel("BCAST");
 
     portField = cp5.addTextfield("portField")
-      .setPosition(anX + 150, anRow1Y)
+      .setPosition(chipX + 70, row3Y)
       .setSize(48, elementHeight)
       .setText(str(artNetPort))
       .setColor(textColor)
@@ -275,39 +270,17 @@ class UserInterface {
       .setInputFilter(ControlP5.INTEGER);
     portField.setCaptionLabel("PORT");
 
-    broadcastToggle = cp5.addToggle("broadcastToggle")
-      .setPosition(anX, anRow1Y)
-      .setSize(elementHeight, elementHeight)
-      .setColorCaptionLabel(textColor)
-      .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          useBroadcast = event.getController().getValue() > 0;
-          updateIPField();
-        }
-      });
-    broadcastToggle.setCaptionLabel("BCAST");
-    broadcastToggle.setValue(useBroadcast ? 1 : 0);   // fires onChange -> initial IP lock/dim
-
     subnetField = cp5.addTextfield("subnetField")
-      .setPosition(anX, anRow2Y)
-      .setSize(34, elementHeight)
+      .setPosition(chipX + 150, row3Y)
+      .setSize(40, elementHeight)
       .setText(str(subnet))
       .setColor(textColor)
       .setColorCaptionLabel(textColor)
       .setInputFilter(ControlP5.INTEGER);
     subnetField.setCaptionLabel("SUBNET");
 
-    universeField = cp5.addTextfield("universeField")
-      .setPosition(anX + 52, anRow2Y)
-      .setSize(34, elementHeight)
-      .setText(str(universe))
-      .setColor(textColor)
-      .setColorCaptionLabel(textColor)
-      .setInputFilter(ControlP5.INTEGER);
-    universeField.setCaptionLabel("UNIV");
-
     dmxToggle = cp5.addToggle("dmxToggle")
-      .setPosition(anX + 128, anRow2Y)
+      .setPosition(chipX + 240, row3Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -320,28 +293,20 @@ class UserInterface {
       });
     dmxToggle.setCaptionLabel("START DMX");
 
-    // ===== TOP-RIGHT: MQTT cluster (below the Art-Net cluster) =====
-    int mqLabelY = y + 116;
-    int mqRowY   = y + 138;             // MQTT toggle + BROKER IP + PORT
+    // ===== SHARED band: row4 = MQTT (enable / broker / port) =====
+    int row4Y = y + 148;
+    cp5.addTextlabel("tagMqtt").setText("MQTT").setPosition(col1, row4Y + 5).setColor(textColor);
 
-    cp5.addTextlabel("mqttLabel")
-      .setText("MQTT SYNC")
-      .setPosition(anX, mqLabelY)
-      .setColor(textColor);
-
-    // Host field created BEFORE the toggle so the toggle's initial setValue()
-    // can lock/dim it via updateMqttFieldsLock() without a null ref (same
-    // pattern as ipField / broadcastToggle).
     mqttHostField = cp5.addTextfield("mqttHostField")
-      .setPosition(anX + 32, mqRowY)
-      .setSize(110, elementHeight)
+      .setPosition(chipX + 70, row4Y)
+      .setSize(120, elementHeight)
       .setText(mqttHost)
       .setColor(textColor)
       .setColorCaptionLabel(textColor);
     mqttHostField.setCaptionLabel("BROKER IP");
 
     mqttPortField = cp5.addTextfield("mqttPortField")
-      .setPosition(anX + 150, mqRowY)
+      .setPosition(chipX + 200, row4Y)
       .setSize(48, elementHeight)
       .setText(str(mqttPort))
       .setColor(textColor)
@@ -350,7 +315,7 @@ class UserInterface {
     mqttPortField.setCaptionLabel("PORT");
 
     mqttToggle = cp5.addToggle("mqttToggle")
-      .setPosition(anX, mqRowY)
+      .setPosition(chipX, row4Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -363,47 +328,27 @@ class UserInterface {
     mqttToggle.setCaptionLabel("ENABLE");
     mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
 
-    // ===== MIRROR cluster (right half of the panel; full relay out is 12b) =====
-    // Per-container H/V flip. R = right/main, L = left/clone. UI-only (no keys).
-    int mirX      = x + 520;
-    int mirLabelY = y + padding;        // aligns with the Art-Net label row
-    int mirRow1Y  = mirLabelY + 22;     // RIGHT: H / V
-    int mirRow2Y  = mirRow1Y + 36;      // LEFT:  H / V
-    int mirPitch  = 56;
+    // ===== PER-EYE band: two columns split at x+480 (echoes the canvas gap) =====
+    // Each eye owns its FLIP H/V + UNIVERSE + IP. Left = clone, right = main.
+    int eyeHeadY  = y + 196;
+    int flipY     = y + 220;
+    int addrY     = y + 252;
+    int lColX     = x + 12;
+    int rColX     = x + 492;
+    int flipPitch = 72;
 
-    cp5.addTextlabel("mirrorLabel")
-      .setText("MIRROR (R / L)")
-      .setPosition(mirX, mirLabelY)
+    cp5.addTextlabel("leftEyeLabel")
+      .setText("LEFT EYE - clone")
+      .setPosition(lColX, eyeHeadY)
       .setColor(textColor);
+    cp5.addTextlabel("rightEyeLabel")
+      .setText("RIGHT EYE - main")
+      .setPosition(rColX, eyeHeadY)
+      .setColor(accentColor);          // cyan — ties to the on-canvas main marker
 
-    rMirrorHToggle = cp5.addToggle("rMirrorHToggle")
-      .setPosition(mirX, mirRow1Y)
-      .setSize(elementHeight, elementHeight)
-      .setValue(rightContainer.mirrorH)
-      .setColorCaptionLabel(textColor)
-      .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          rightContainer.setMirrorH(event.getController().getValue() > 0);
-        }
-      });
-    rMirrorHToggle.setCaptionLabel("R-H");
-
-    rMirrorVToggle = cp5.addToggle("rMirrorVToggle")
-      .setPosition(mirX + mirPitch, mirRow1Y)
-      .setSize(elementHeight, elementHeight)
-      .setValue(rightContainer.mirrorV)
-      .setColorCaptionLabel(textColor)
-      .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          rightContainer.setMirrorV(event.getController().getValue() > 0);
-        }
-      });
-    rMirrorVToggle.setCaptionLabel("R-V");
-
+    // --- left eye (clone) ---
     lMirrorHToggle = cp5.addToggle("lMirrorHToggle")
-      .setPosition(mirX, mirRow2Y)
+      .setPosition(lColX, flipY)
       .setSize(elementHeight, elementHeight)
       .setValue(leftContainer.mirrorH)
       .setColorCaptionLabel(textColor)
@@ -413,10 +358,10 @@ class UserInterface {
           leftContainer.setMirrorH(event.getController().getValue() > 0);
         }
       });
-    lMirrorHToggle.setCaptionLabel("L-H");
+    lMirrorHToggle.setCaptionLabel("FLIP H");
 
     lMirrorVToggle = cp5.addToggle("lMirrorVToggle")
-      .setPosition(mirX + mirPitch, mirRow2Y)
+      .setPosition(lColX + flipPitch, flipY)
       .setSize(elementHeight, elementHeight)
       .setValue(leftContainer.mirrorV)
       .setColorCaptionLabel(textColor)
@@ -426,10 +371,75 @@ class UserInterface {
           leftContainer.setMirrorV(event.getController().getValue() > 0);
         }
       });
-    lMirrorVToggle.setCaptionLabel("L-V");
+    lMirrorVToggle.setCaptionLabel("FLIP V");
+
+    lUnivField = cp5.addTextfield("lUnivField")
+      .setPosition(lColX, addrY)
+      .setSize(44, elementHeight)
+      .setText(str(leftContainer.universe))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    lUnivField.setCaptionLabel("UNIVERSE");
+
+    lIpField = cp5.addTextfield("lIpField")
+      .setPosition(lColX + 98, addrY)
+      .setSize(150, elementHeight)
+      .setText(leftContainer.targetIP)
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor);
+    lIpField.setCaptionLabel("IP");
+
+    // --- right eye (main) ---
+    rMirrorHToggle = cp5.addToggle("rMirrorHToggle")
+      .setPosition(rColX, flipY)
+      .setSize(elementHeight, elementHeight)
+      .setValue(rightContainer.mirrorH)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          rightContainer.setMirrorH(event.getController().getValue() > 0);
+        }
+      });
+    rMirrorHToggle.setCaptionLabel("FLIP H");
+
+    rMirrorVToggle = cp5.addToggle("rMirrorVToggle")
+      .setPosition(rColX + flipPitch, flipY)
+      .setSize(elementHeight, elementHeight)
+      .setValue(rightContainer.mirrorV)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          rightContainer.setMirrorV(event.getController().getValue() > 0);
+        }
+      });
+    rMirrorVToggle.setCaptionLabel("FLIP V");
+
+    rUnivField = cp5.addTextfield("rUnivField")
+      .setPosition(rColX, addrY)
+      .setSize(44, elementHeight)
+      .setText(str(rightContainer.universe))
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor)
+      .setInputFilter(ControlP5.INTEGER);
+    rUnivField.setCaptionLabel("UNIVERSE");
+
+    rIpField = cp5.addTextfield("rIpField")
+      .setPosition(rColX + 98, addrY)
+      .setSize(150, elementHeight)
+      .setText(rightContainer.targetIP)
+      .setColor(textColor)
+      .setColorCaptionLabel(textColor);
+    rIpField.setCaptionLabel("IP");
+
+    // Both IP fields now exist — set the broadcast toggle's initial state; its
+    // onChange locks/dims both eye IP fields via updateIPField().
+    broadcastToggle.setValue(useBroadcast ? 1 : 0);
 
     // ===== Console rect (full width, bottom) =====
-    int hDivY = y + 184;                // horizontal separator above console (clears the color + Art-Net + MQTT rows)
+    int hDivY = y + 286;                // separator above console (below the per-eye band)
     consoleX = col1;
     consoleY = hDivY + 6;
     consoleW = width - padding * 2;
@@ -467,10 +477,12 @@ class UserInterface {
   // Backspace) in a field isn't ALSO interpreted as a global hotkey — otherwise
   // Backspace in the GAMMA/IP/etc. field would clear the loaded video.
   boolean isTextfieldFocused() {
-    return (ipField       != null && ipField.isFocus())
+    return (rIpField      != null && rIpField.isFocus())
+        || (lIpField      != null && lIpField.isFocus())
+        || (rUnivField    != null && rUnivField.isFocus())
+        || (lUnivField    != null && lUnivField.isFocus())
         || (portField     != null && portField.isFocus())
         || (subnetField   != null && subnetField.isFocus())
-        || (universeField != null && universeField.isFocus())
         || (gammaField    != null && gammaField.isFocus())
         || (mqttHostField != null && mqttHostField.isFocus())
         || (mqttPortField != null && mqttPortField.isFocus());
@@ -484,36 +496,41 @@ class UserInterface {
   // Broadcast mode pins the IP to 255.255.255.255 and locks/dims the field;
   // unicast mode unlocks it for a real ESP32 address.
   void updateIPField() {
-    if (ipField == null) return;
-    if (useBroadcast) {
-      ipField.setText("255.255.255.255");
-      ipField.setLock(true);
-      ipField.setColorBackground(disabledColor);
-      ipField.setColor(dimmedTextColor);
-    } else {
-      ipField.setLock(false);
-      ipField.setColorBackground(color(60));
-      ipField.setColor(textColor);
+    for (Textfield f : new Textfield[] { rIpField, lIpField }) {
+      if (f == null) continue;                 // may not exist yet during setup
+      if (useBroadcast) {
+        f.setText("255.255.255.255");
+        f.setLock(true);
+        f.setColorBackground(disabledColor);
+        f.setColor(dimmedTextColor);
+      } else {
+        f.setLock(false);
+        f.setColorBackground(color(60));
+        f.setColor(textColor);
+      }
     }
   }
 
-  // Pull the field values into the globals, tear down any existing sender, and
-  // build a fresh one so changed target/port/universe/subnet take effect.
+  // Pull the field values into each container, tear down any existing sender,
+  // and build a fresh one so changed target/port/universe/subnet take effect.
   void startDMX() {
     artNetPort = parseInt(portField.getText());
     subnet     = parseInt(subnetField.getText());
-    universe   = parseInt(universeField.getText());   // RIGHT/base universe; left = right+1 (12a)
-    targetIP   = useBroadcast ? "255.255.255.255" : ipField.getText().trim();
 
-    // Phase 12a: build BOTH eyes' senders. Same target IP for now; left universe
-    // is right+1 (explicit per-container target/IP is phase 12b).
-    rightContainer.startSender(useBroadcast, targetIP, artNetPort, subnet, universe);
-    leftContainer.startSender( useBroadcast, targetIP, artNetPort, subnet, universe + 1);
+    // Phase 12b: each eye owns its universe + IP from its column's fields.
+    rightContainer.universe = parseInt(rUnivField.getText());
+    leftContainer.universe  = parseInt(lUnivField.getText());
+    rightContainer.targetIP = useBroadcast ? "255.255.255.255" : rIpField.getText().trim();
+    leftContainer.targetIP  = useBroadcast ? "255.255.255.255" : lIpField.getText().trim();
+
+    rightContainer.startSender(useBroadcast, rightContainer.targetIP, artNetPort, subnet, rightContainer.universe);
+    leftContainer.startSender( useBroadcast, leftContainer.targetIP,  artNetPort, subnet, leftContainer.universe);
     enableDMX = true;
 
-    logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
-      + ":" + artNetPort + ", subnet " + subnet
-      + "  | R=U" + universe + "  L=U" + (universe + 1)
+    logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : "unicast")
+      + " port " + artNetPort + ", subnet " + subnet
+      + "  | R=U" + rightContainer.universe + (useBroadcast ? "" : " " + rightContainer.targetIP)
+      + "  | L=U" + leftContainer.universe  + (useBroadcast ? "" : " " + leftContainer.targetIP)
       + "  (" + (ringGrid.N * 3) + " ch/ring)");
 
     publishRingConfig();   // main (right) universe/subnet — keep the tester in sync
@@ -631,11 +648,15 @@ class UserInterface {
     strokeWeight(1);
     line(x, y, x + width, y);
 
-    // Light separators: vertical (left controls | art-net) + horizontal (above console)
+    // Separators: shared-band underline, per-eye center split (echoes the canvas
+    // gap), and the line above the console.
     stroke(textColor, 55);
     strokeWeight(1);
-    line(sepX, y + 8, sepX, consoleY - 8);
-    line(x + padding, consoleY - 6, x + width - padding, consoleY - 6);
+    line(x + padding, y + 182, x + width - padding, y + 182);          // shared | per-eye
+    line(x + padding, consoleY - 6, x + width - padding, consoleY - 6); // per-eye | console
+    for (float yy = y + 190; yy < y + 280; yy += 7) {                  // dashed center split
+      line(x + 480, yy, x + 480, min(yy + 3, y + 280));
+    }
     noStroke();
 
     // ----- custom colored console (newest line at the bottom) -----

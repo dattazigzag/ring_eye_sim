@@ -113,7 +113,8 @@ class MediaHandler {
       consecutiveReloads = 0;
       resetTransform();             // each new video lands centered + fit
       log("[media] loaded video: " + filePath);
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       log("[media] error loading video: " + e.getMessage());
       isVideo     = false;
       loadedVideo = null;
@@ -160,12 +161,16 @@ class MediaHandler {
   void reloadCurrentVideo() {
     consecutiveReloads++;
     log("[watchdog] no frame for >" + WATCHDOG_TIMEOUT_MS + "ms — reloading ("
-          + consecutiveReloads + "/" + WATCHDOG_MAX_RELOADS + "): " + currentPath);
+      + consecutiveReloads + "/" + WATCHDOG_MAX_RELOADS + "): " + currentPath);
 
     Movie old = loadedVideo;
     loadedVideo = null;
     if (old != null) {
-      try { old.stop(); } catch (Exception e) { /* native may already be disposed */ }
+      try {
+        old.stop();
+      }
+      catch (Exception e) { /* native may already be disposed */
+      }
     }
 
     try {
@@ -174,7 +179,8 @@ class MediaHandler {
       isVideo         = true;
       shouldBePlaying = true;
       lastFrameMillis = millis();      // restart the stall timer
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       log("[watchdog] reload failed: " + e.getMessage());
       isVideo     = false;
       loadedVideo = null;
@@ -192,8 +198,8 @@ class MediaHandler {
 
     // (Re)create the detached buffer only when the native dims change.
     if (loadedImage == null
-        || loadedImage.width  != loadedVideo.width
-        || loadedImage.height != loadedVideo.height) {
+      || loadedImage.width  != loadedVideo.width
+      || loadedImage.height != loadedVideo.height) {
       loadedImage = createImage(loadedVideo.width, loadedVideo.height, RGB);
     }
 
@@ -226,11 +232,11 @@ class MediaHandler {
 
     // (Re)create the buffer only when the target dimensions change
     if (processedImage == null
-        || processedImage.width  != targetW
-        || processedImage.height != targetH) {
+      || processedImage.width  != targetW
+      || processedImage.height != targetH) {
       processedImage = createImage(targetW, targetH, RGB);
       log("[media] processedImage buffer: " + targetW + "x" + targetH
-            + " (source " + loadedImage.width + "x" + loadedImage.height + ")");
+        + " (source " + loadedImage.width + "x" + loadedImage.height + ")");
     }
 
     // Resize-copy from the detached copy to the canvas-fit target. PImage.copy()
@@ -348,3 +354,4 @@ class MediaHandler {
     return getDisplayBounds(canvas);
   }
 }
+

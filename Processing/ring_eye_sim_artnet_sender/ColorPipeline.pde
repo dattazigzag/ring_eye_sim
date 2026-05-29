@@ -58,9 +58,12 @@ class ColorPipeline {
 
   String getModeName() {
     switch (mode) {
-      case MODE_RAW:   return "RAW";
-      case MODE_GAMMA: return "GAMMA";
-      default:         return "GAMMA+BRIGHT";
+    case MODE_RAW:
+      return "RAW";
+    case MODE_GAMMA:
+      return "GAMMA";
+    default:
+      return "GAMMA+BRIGHT";
     }
   }
 

@@ -55,7 +55,8 @@ void setup() {
   try {
     mqtt = new MQTTClient(this);
     mqtt.connect(MQTT_BROKER, "ring_receiver");
-  } catch (Exception e) {
+  }
+  catch (Exception e) {
     println("[mqtt] no broker at " + MQTT_BROKER + " — using default N=" + N
       + ". Start mosquitto and relaunch for live sync.");
   }
@@ -66,8 +67,12 @@ void setup() {
 // Fired on every (re)connect — (re)subscribe so it survives auto-reconnects.
 void clientConnected() {
   mqttReady = true;
-  try { mqtt.subscribe(MQTT_TOPIC_CONFIG, 1); }
-  catch (Exception e) { println("[mqtt] subscribe failed: " + e.getMessage()); }
+  try {
+    mqtt.subscribe(MQTT_TOPIC_CONFIG, 1);
+  }
+  catch (Exception e) {
+    println("[mqtt] subscribe failed: " + e.getMessage());
+  }
   println("[mqtt] connected + subscribed " + MQTT_TOPIC_CONFIG);
 }
 
@@ -82,7 +87,7 @@ void messageReceived(String topic, byte[] payload) {
   JSONObject j = parseJSONObject(new String(payload));
   if (j == null) return;
   universe = j.getInt("universe", universe);
-  subnet   = j.getInt("subnet",   subnet);
+  subnet   = j.getInt("subnet", subnet);
   int newN = j.getInt("n", N);
   if (newN >= 1 && newN != N) {
     N = newN;
@@ -97,8 +102,10 @@ void rebuildLayout() {
   float s = sin(PI / N);
   cellSize = 2.0 * ringR * s / (1.0 + s) * 0.95;
 
-  cx = new float[N];  cy = new float[N];
-  lx = new float[N];  ly = new float[N];
+  cx = new float[N];
+  cy = new float[N];
+  lx = new float[N];
+  ly = new float[N];
 
   float ccx = width / 2.0, ccy = height / 2.0;
   float labelR = ringR + cellSize / 2.0 + constrain(cellSize * 0.2, 8, 20);
@@ -157,9 +164,9 @@ void drawHud(boolean haveDmx) {
   textAlign(LEFT, TOP);
   textSize(11);
   text("N=" + N + "  U" + universe + " S" + subnet
-     + "   DMX " + (haveDmx ? "ok" : "waiting")
-     + "   MQTT " + (mqttReady ? "ok" : "off")
-     + "   " + nf(frameRate, 0, 0) + " fps", 8, 8);
+    + "   DMX " + (haveDmx ? "ok" : "waiting")
+    + "   MQTT " + (mqttReady ? "ok" : "off")
+    + "   " + nf(frameRate, 0, 0) + " fps", 8, 8);
   textAlign(CENTER, CENTER);   // restore for the disc labels next frame
 }
 

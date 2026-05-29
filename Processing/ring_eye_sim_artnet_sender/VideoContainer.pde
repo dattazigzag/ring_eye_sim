@@ -28,9 +28,10 @@ class VideoContainer {
   boolean mirrorH = false;
   boolean mirrorV = false;
 
-  // Art-Net (phase 12a) — this eye's own sender + universe.
+  // Art-Net (phase 12a/b) — this eye's own sender, universe + target.
   DMXSender sender;          // lazy: built on startSender(), torn down on stopSender()
-  int       universe = 0;    // set on startSender()
+  int       universe = 0;    // this eye's universe (right=0, left=1 by default)
+  String    targetIP = "255.255.255.255";   // this eye's unicast target (ignored under broadcast)
 
   // Constant cyan main marker (same cyan as the adjust guides), top-left inset.
   static final float MARKER_SIZE  = 12.5;
