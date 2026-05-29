@@ -328,16 +328,23 @@ class MediaHandler {
   //   Center anchor at (videoX, videoY) in canvas-local coords.
   // -------------------------------------------------------------
 
-  Rect getDisplayBounds() {
+  // Per-canvas placement: the SAME shared frame + transform placed relative to
+  // whichever container's canvas is passed (two containers => two positions).
+  Rect getDisplayBounds(Canvas c) {
     if (currentFrame == null) {
-      return new Rect(canvas.x, canvas.y, canvas.width, canvas.height);
+      return new Rect(c.x, c.y, c.width, c.height);
     }
 
     float w = currentFrame.width  * videoScale;
     float h = currentFrame.height * videoScale;
-    float x = canvas.x + videoX - w / 2.0;
-    float y = canvas.y + videoY - h / 2.0;
+    float x = c.x + videoX - w / 2.0;
+    float y = c.y + videoY - h / 2.0;
 
     return new Rect(x, y, w, h);
+  }
+
+  // Back-compat no-arg: uses this handler's reference canvas.
+  Rect getDisplayBounds() {
+    return getDisplayBounds(canvas);
   }
 }

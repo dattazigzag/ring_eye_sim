@@ -218,14 +218,17 @@ class RingGrid {
   // -------------------------------------------------------------
 
   // Average the rendered video color inside each cell's inscribed circle into
-  // cellColors[]. Reads the sketch framebuffer directly via loadPixels().
+  // cellColors[]. Reads the sketch framebuffer pixels[] (the CALLER does one
+  // loadPixels() per frame before sampling both rings).
   // Density-aware: pixels[] is PHYSICAL (width*pixelDensity wide), so each
   // logical sample coord is mapped to physical by *pixelDensity — at density 1
   // it's a no-op (identical to the old path). MUST be called after the video is
   // drawn but BEFORE drawOverlay(), otherwise we'd average our own red cell
   // strokes. Bit-shift channel extraction + primitive accumulators (alloc-free).
   void sampleColors() {
-    loadPixels();                 // sketch framebuffer -> pixels[] (physical size)
+    // Caller must have called loadPixels() once this frame. With two containers
+    // the main sketch does a SINGLE framebuffer read back before sampling both
+    // rings, so this method no longer calls loadPixels() itself.
     int d  = pixelDensity;        // 1 on normal displays, 2 on Retina/high-DPI
     int sw = pixelWidth;          // physical row stride of pixels[] (= width * d)
 

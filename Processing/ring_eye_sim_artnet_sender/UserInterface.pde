@@ -132,7 +132,7 @@ class UserInterface {
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           if (uiSyncing) return;
-          ringGrid.setGrid(event.getController().getValue() > 0);
+          applyGrid(event.getController().getValue() > 0);
         }
       });
     gridToggle.setCaptionLabel("GRID");
@@ -145,7 +145,7 @@ class UserInterface {
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           if (uiSyncing) return;
-          ringGrid.setLabels(event.getController().getValue() > 0);
+          applyLabels(event.getController().getValue() > 0);
         }
       });
     labelsToggle.setCaptionLabel("LABELS");
@@ -158,7 +158,7 @@ class UserInterface {
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
           if (uiSyncing) return;
-          ringGrid.setPreview(event.getController().getValue() > 0);
+          applyPreview(event.getController().getValue() > 0);
         }
       });
     previewToggle.setCaptionLabel("PREVIEW");
@@ -177,8 +177,7 @@ class UserInterface {
       .setColorValueLabel(textColor)
       .onChange(new CallbackListener() {
         public void controlEvent(CallbackEvent event) {
-          ringGrid.setN((int) event.getController().getValue());
-          publishRingConfig();   // mirror N to the preview receiver (MQTT)
+          applyN((int) event.getController().getValue());   // both rings + MQTT publish
         }
       });
     nSlider.getCaptionLabel()

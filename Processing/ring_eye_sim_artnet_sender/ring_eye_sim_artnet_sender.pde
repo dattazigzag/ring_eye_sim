@@ -46,7 +46,8 @@ import mqtt.*;
 final int CANVAS_W = 480;
 final int CANVAS_H = 480;
 final int UI_H     = 340;   // panel taller than the video so color + Art-Net + MQTT controls and the console fit (video area unchanged)
-final int SKETCH_W = CANVAS_W;
+final int NUM_CONTAINERS = 2;                    // right (main) + left (clone)
+final int SKETCH_W = CANVAS_W * NUM_CONTAINERS;  // 960 — two 480 canvases side by side
 final int SKETCH_H = CANVAS_H + UI_H;
 
 // P3D for video performance; SDrop drag-drop is dead under P3D so we use the
@@ -68,13 +69,15 @@ final String CONFIG_PATH = "data/config.json";
 // Main objects
 // =============================================================
 
-Canvas        canvas;
-MediaHandler  mediaHandler;
-RingGrid      ringGrid;
-ColorPipeline colorPipeline;       // phase 7 — gamma/brightness applied to preview + DMX
-UserInterface ui;
-SDrop         drop;
-DMXSender     dmxSender;            // created lazily on first Art-Net enable
+Canvas           leftCanvas, rightCanvas;
+VideoContainer   leftContainer, rightContainer;
+VideoContainer[] containers;        // {leftContainer, rightContainer}
+RingGrid         ringGrid;          // ALIAS = rightContainer.ring (the MAIN/right ring). UI/DMX/MQTT/config track this; N + grid/labels/preview fan out to BOTH rings via the apply* helpers.
+MediaHandler     mediaHandler;
+ColorPipeline    colorPipeline;     // phase 7 — gamma/brightness applied to preview + DMX (shared)
+UserInterface    ui;
+SDrop            drop;
+DMXSender        dmxSender;          // phase 10: single sender, still wired to the RIGHT ring only (dual-universe is phase 12)
 
 // =============================================================
 // Art-Net config (phase 6) — defaults from project brief; UI fields in 6b
@@ -144,9 +147,16 @@ void setup() {
 
   //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 
-  canvas        = new Canvas(0, 0, CANVAS_W, CANVAS_H);
-  mediaHandler  = new MediaHandler(this, canvas);
-  ringGrid      = new RingGrid(canvas);
+  // Two side-by-side containers from ONE decode: left = clone (x=0),
+  // right = main (x=480). Each owns its own RingGrid; the shared MediaHandler
+  // places the same frame into each via getDisplayBounds(canvas).
+  leftCanvas    = new Canvas(0,        0, CANVAS_W, CANVAS_H);
+  rightCanvas   = new Canvas(CANVAS_W, 0, CANVAS_W, CANVAS_H);
+  mediaHandler  = new MediaHandler(this, rightCanvas);   // rightCanvas is the 480 sizing/center reference
+  leftContainer  = new VideoContainer(leftCanvas,  new RingGrid(leftCanvas),  false, "left");
+  rightContainer = new VideoContainer(rightCanvas, new RingGrid(rightCanvas), true,  "right");
+  containers     = new VideoContainer[] { leftContainer, rightContainer };
+  ringGrid       = rightContainer.ring;     // MAIN alias (see globals)
   colorPipeline = new ColorPipeline();      // before loadConfig + UI
 
   // Phase 8: restore saved state (ring N + toggles, color, Art-Net target,
@@ -186,69 +196,66 @@ void draw() {
     hint(DISABLE_DEPTH_TEST);
   }
 
-  // Canvas region
-  canvas.render();
+  // Frame produced by the PREVIOUS update() (the read is LAST — race fix).
+  // Shared by both containers (single decode).
+  PImage frame = mediaHandler.getCurrentFrame();
 
-  // Draw the current video frame (produced by the PREVIOUS frame's update()).
-  if (mediaHandler.hasContent()) {
-    PImage frame = mediaHandler.getCurrentFrame();
-    if (frame != null) {
-      Rect b = mediaHandler.getDisplayBounds();
-      image(frame, b.x, b.y, b.w, b.h);
-    }
+  // 1) Render each container's canvas + the shared frame (+ main marker).
+  for (VideoContainer c : containers) {
+    c.canvas.render();
+    c.render(frame, mediaHandler);
   }
 
-  // P3D zero-image trick — keeps the video pipeline alive under P3D renderer.
-  // Done right after display, BEFORE the read — matching the old project's
-  // renderCanvasContent() order. See: https://github.com/processing/processing-video/issues/207
+  // P3D zero-image keepalive — ONCE (single decode), after the blits, BEFORE
+  // the read. https://github.com/processing/processing-video/issues/207
   if (ENABLE_P3D && mediaHandler.isVideo && mediaHandler.loadedVideo != null) {
     image(mediaHandler.loadedVideo, 0, 0, 0, 0);
   }
 
-  // Phase 6: is it time to push an Art-Net frame? Throttled on its own timer
-  // (DMX_SEND_INTERVAL_MS), independent of the uncapped draw rate.
+  // Throttled Art-Net tick (DMX_SEND_INTERVAL_MS), independent of the draw rate.
   boolean dmxTick = enableDMX && dmxSender != null
     && (millis() - lastDmxSendMillis >= DMX_SEND_INTERVAL_MS);
 
-  // Phase 5/6: sample the video colors under each cell BEFORE the overlay is
-  // drawn (otherwise we'd average our own red cell strokes). Sample if the
-  // preview is on OR we're about to send a DMX frame.
-  if (mediaHandler.hasContent() && (ringGrid.previewEnabled || dmxTick)) {
-    ringGrid.sampleColors();
+  // 2) Sample BOTH rings BEFORE any overlay (else we'd average our own red
+  // cells). One loadPixels() read back feeds both rings. Sample if a preview is
+  // on OR we're about to send a DMX frame. (ringGrid = the right/main ring; its
+  // previewEnabled mirrors the left's — they're kept in sync.)
+  if (frame != null && (ringGrid.previewEnabled || dmxTick)) {
+    loadPixels();                       // single framebuffer read back for both
+    for (VideoContainer c : containers) c.sampleRing();
   }
 
-  // Ring grid overlay — drawn ON TOP of the video, INSIDE the canvas region
-  ringGrid.drawOverlay();
+  // 3) Overlay + preview discs for both rings, on top of the video.
+  for (VideoContainer c : containers) c.drawRing(colorPipeline);
 
-  // Phase 5: preview discs of the sampled colors (toggle 'C'), on top of overlay.
-  // Phase 7: discs are run through the color pipeline so they match the ring (WYSIWYG).
-  ringGrid.drawPreview(colorPipeline);
-
-  // Phase 6: push one Art-Net frame on the throttle tick. Zero the buffer first
-  // so a cleared video (no content) blanks the ring instead of holding stale.
+  // 4) Phase 10: DMX still drives the MAIN (right) ring only, on the tick. Zero
+  // the buffer first so a cleared video blanks the ring. Dual-universe (both
+  // rings, two senders) is phase 12.
   if (dmxTick) {
     resetDMXData();
-    if (mediaHandler.hasContent()) ringGrid.writeToDMXBuffer(dmxData, colorPipeline);
+    if (frame != null) ringGrid.writeToDMXBuffer(dmxData, colorPipeline);
     dmxSender.sendDMXData(dmxData);
     lastDmxSendMillis = millis();
   }
 
-  // Transient adjustment guides — drawn AFTER sampling + the DMX write so they
-  // never affect the sampled cell colors or the bytes on the wire. Auto-hidden
-  // a short while after the last move/scale (and immediately on reset).
+  // 5) Transient adjustment guides on BOTH containers — AFTER sampling + the
+  // DMX write so they never touch the sampled colors or the bytes on the wire.
   if (mediaHandler.hasContent() && showAdjustGuides()) {
-    drawAdjustGuides();
+    for (VideoContainer c : containers) drawAdjustGuides(c.canvas);
   }
 
-  // UI panel background + divider + FPS readout. ControlP5 draws its controls
-  // on top automatically after draw() returns.
+  // Thin divider between the two containers (drawn after the canvas content,
+  // sits in the gap between the two rings — never sampled).
+  stroke(60);
+  strokeWeight(1);
+  line(CANVAS_W, 0, CANVAS_W, CANVAS_H);
+  noStroke();
+
+  // UI panel + FPS. ControlP5 draws its controls on top after draw() returns.
   ui.setFps(frameRate);
   ui.render();
 
-  // Read the NEXT video frame LAST — matches the old humanoid_face_twin project,
-  // which calls update (the read) at the very end of draw(). Decouples frame
-  // delivery from the texture upload above, narrowing the AppSink race window.
-  // Costs one frame of display latency, which is imperceptible.
+  // Read the NEXT frame LAST (single decode) — narrows the AppSink race.
   mediaHandler.update();
 }
 
@@ -324,17 +331,17 @@ void keyPressed(KeyEvent event) {
     return;
   }
   if (key == 'g' || key == 'G') {
-    ringGrid.toggleGrid();
+    applyGrid(!ringGrid.gridEnabled);     // fan out to both rings
     ui.syncToggles();    // keep UI toggle in sync
     return;
   }
   if (key == 'l' || key == 'L') {
-    ringGrid.toggleLabels();
+    applyLabels(!ringGrid.labelsEnabled);
     ui.syncToggles();
     return;
   }
   if (key == 'c' || key == 'C') {
-    ringGrid.togglePreview();
+    applyPreview(!ringGrid.previewEnabled);
     ui.syncToggles();    // keep the PREVIEW toggle in sync
     return;
   }
@@ -413,6 +420,33 @@ void resetDMXData() {
 }
 
 // =============================================================
+// Ring fan-out — N + grid/labels/preview are SHARED, so a change applies to
+// BOTH containers' rings. The global `ringGrid` (right/main) is the value the
+// UI/config read back from; both rings are kept identical through these.
+// =============================================================
+
+void applyN(int n) {
+  leftContainer.ring.setN(n);
+  rightContainer.ring.setN(n);
+  publishRingConfig();        // publishes the main (right) ring's N
+}
+
+void applyGrid(boolean on) {
+  leftContainer.ring.setGrid(on);
+  rightContainer.ring.setGrid(on);
+}
+
+void applyLabels(boolean on) {
+  leftContainer.ring.setLabels(on);
+  rightContainer.ring.setLabels(on);
+}
+
+void applyPreview(boolean on) {
+  leftContainer.ring.setPreview(on);
+  rightContainer.ring.setPreview(on);
+}
+
+// =============================================================
 // MQTT — publish ring layout so the preview receiver mirrors it live.
 // Callbacks (clientConnected/connectionLost/messageReceived) are invoked by the
 // library ON THE MAIN THREAD via a post-draw() hook, so they're render-safe.
@@ -469,10 +503,10 @@ boolean showAdjustGuides() {
   return millis() - lastAdjustMillis < ADJUST_GUIDE_LINGER_MS;
 }
 
-void drawAdjustGuides() {
-  Rect b = mediaHandler.getDisplayBounds();           // video extent on screen
-  float vcx = canvas.x + mediaHandler.videoX;         // video center on screen
-  float vcy = canvas.y + mediaHandler.videoY;
+void drawAdjustGuides(Canvas c) {
+  Rect b = mediaHandler.getDisplayBounds(c);          // video extent on screen
+  float vcx = c.x + mediaHandler.videoX;              // video center on screen
+  float vcy = c.y + mediaHandler.videoY;
 
   pushStyle();
 
@@ -613,10 +647,10 @@ void loadConfig() {
 
   if (root.hasKey("ring")) {
     JSONObject r = root.getJSONObject("ring");
-    ringGrid.setN(r.getInt("n", ringGrid.N));
-    ringGrid.setGrid(r.getBoolean("gridEnabled", ringGrid.gridEnabled));
-    ringGrid.setLabels(r.getBoolean("labelsEnabled", ringGrid.labelsEnabled));
-    ringGrid.setPreview(r.getBoolean("previewEnabled", ringGrid.previewEnabled));
+    applyN(r.getInt("n", ringGrid.N));                                // both rings
+    applyGrid(r.getBoolean("gridEnabled", ringGrid.gridEnabled));
+    applyLabels(r.getBoolean("labelsEnabled", ringGrid.labelsEnabled));
+    applyPreview(r.getBoolean("previewEnabled", ringGrid.previewEnabled));
   }
 
   if (root.hasKey("color")) {
