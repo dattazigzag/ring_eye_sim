@@ -329,10 +329,11 @@ class UserInterface {
     mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
 
     // ===== PER-EYE band: two columns split at x+480 (echoes the canvas gap) =====
-    // Each eye owns its FLIP H/V + UNIVERSE + IP. Left = clone, right = main.
+    // Each eye owns its FLIP H/V + UNIVERSE + IP on ONE row — flips on the left,
+    // then UNIVERSE + IP in the column's spare width. Left = clone, right = main.
     int eyeHeadY  = y + 196;
-    int flipY     = y + 220;
-    int addrY     = y + 252;
+    int flipY     = y + 226;        // single per-eye control row
+    int addrY     = flipY;          // UNIVERSE + IP sit to the right of the flips
     int lColX     = x + 12;
     int rColX     = x + 492;
     int flipPitch = 72;
@@ -374,7 +375,7 @@ class UserInterface {
     lMirrorVToggle.setCaptionLabel("FLIP V");
 
     lUnivField = cp5.addTextfield("lUnivField")
-      .setPosition(lColX, addrY)
+      .setPosition(lColX + 148, addrY)
       .setSize(44, elementHeight)
       .setText(str(leftContainer.universe))
       .setColor(textColor)
@@ -383,7 +384,7 @@ class UserInterface {
     lUnivField.setCaptionLabel("UNIVERSE");
 
     lIpField = cp5.addTextfield("lIpField")
-      .setPosition(lColX + 98, addrY)
+      .setPosition(lColX + 248, addrY)
       .setSize(150, elementHeight)
       .setText(leftContainer.targetIP)
       .setColor(textColor)
@@ -418,7 +419,7 @@ class UserInterface {
     rMirrorVToggle.setCaptionLabel("FLIP V");
 
     rUnivField = cp5.addTextfield("rUnivField")
-      .setPosition(rColX, addrY)
+      .setPosition(rColX + 148, addrY)
       .setSize(44, elementHeight)
       .setText(str(rightContainer.universe))
       .setColor(textColor)
@@ -427,7 +428,7 @@ class UserInterface {
     rUnivField.setCaptionLabel("UNIVERSE");
 
     rIpField = cp5.addTextfield("rIpField")
-      .setPosition(rColX + 98, addrY)
+      .setPosition(rColX + 248, addrY)
       .setSize(150, elementHeight)
       .setText(rightContainer.targetIP)
       .setColor(textColor)
@@ -439,7 +440,7 @@ class UserInterface {
     broadcastToggle.setValue(useBroadcast ? 1 : 0);
 
     // ===== Console rect (full width, bottom) =====
-    int hDivY = y + 286;                // separator above console (below the per-eye band)
+    int hDivY = y + 272;                // separator above console (below the single per-eye row)
     consoleX = col1;
     consoleY = hDivY + 6;
     consoleW = width - padding * 2;
@@ -654,8 +655,8 @@ class UserInterface {
     strokeWeight(1);
     line(x + padding, y + 182, x + width - padding, y + 182);          // shared | per-eye
     line(x + padding, consoleY - 6, x + width - padding, consoleY - 6); // per-eye | console
-    for (float yy = y + 190; yy < y + 280; yy += 7) {                  // dashed center split
-      line(x + 480, yy, x + 480, min(yy + 3, y + 280));
+    for (float yy = y + 190; yy < y + 266; yy += 7) {                  // dashed center split
+      line(x + 480, yy, x + 480, min(yy + 3, y + 266));
     }
     noStroke();
 

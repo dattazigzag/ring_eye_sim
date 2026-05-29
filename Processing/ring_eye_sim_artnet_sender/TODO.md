@@ -1,8 +1,8 @@
 # TODO
 
-## In progress
-- [ ] **Phase 12b** — Art-Net UI rework + full panel relay out. **Code written 2026-05-29 — awaiting user test.**
-  - Banded panel (window grows to 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent), each eye owning FLIP H/V + UNIVERSE + IP; full-width console below.
+## Done (2026-05-29)
+- [x] **Phase 12b** — Art-Net UI rework + full panel relay out. **Done + tested 2026-05-29.**
+  - Banded panel (window 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent). Each eye is ONE row — FLIP H/V on the left, UNIVERSE + IP in the column's spare width (spacing polish 2026-05-29). Full-width console below.
   - Per-eye ownership: each eye column owns FLIP + UNIVERSE + IP; only BROADCAST/PORT/SUBNET/START are shared. BCAST locks BOTH eye IP fields.
   - Per-eye target persistence: nested `artnet.{right,left}.{ip,universe}` + shared `{useBroadcast,port,subnet}`; legacy flat `targetIP`/`universe` falls back onto the right (main) eye.
   - Files: `ring_eye_sim_artnet_sender.pde` (`UI_H` 440; per-eye `universe` defaults; nested save/load; `publishRingConfig` → right eye; removed dead `targetIP`/`universe` globals); `VideoContainer.pde` (`targetIP` field); `UserInterface.pde` (full `setupControls` relay out, `updateIPField` both eyes, `startDMX` per-eye, `isTextfieldFocused`, `render` separators).
