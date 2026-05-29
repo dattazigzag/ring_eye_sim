@@ -363,7 +363,7 @@ class UserInterface {
     mqttToggle.setCaptionLabel("ENABLE");
     mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
 
-    // ===== MIRROR cluster (right half of the panel; full relayout is 12b) =====
+    // ===== MIRROR cluster (right half of the panel; full relay out is 12b) =====
     // Per-container H/V flip. R = right/main, L = left/clone. UI-only (no keys).
     int mirX      = x + 520;
     int mirLabelY = y + padding;        // aligns with the Art-Net label row
