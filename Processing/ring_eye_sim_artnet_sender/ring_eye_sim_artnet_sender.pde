@@ -77,7 +77,8 @@ MediaHandler     mediaHandler;
 ColorPipeline    colorPipeline;     // phase 7 — gamma/brightness applied to preview + DMX (shared)
 UserInterface    ui;
 SDrop            drop;
-DMXSender        dmxSender;          // phase 10: single sender, still wired to the RIGHT ring only (dual-universe is phase 12)
+// Per-container DMXSender lives on each VideoContainer (phase 12a): right + left
+// each send their own ring on their own universe. No single global sender.
 
 // =============================================================
 // Art-Net config (phase 6) — defaults from project brief; UI fields in 6b
@@ -213,7 +214,9 @@ void draw() {
   }
 
   // Throttled Art-Net tick (DMX_SEND_INTERVAL_MS), independent of the draw rate.
-  boolean dmxTick = enableDMX && dmxSender != null
+  // Senders live per-container (phase 12a); each writeAndSend() no-ops if its
+  // sender isn't up, so we only need the enable flag + timer here.
+  boolean dmxTick = enableDMX
     && (millis() - lastDmxSendMillis >= DMX_SEND_INTERVAL_MS);
 
   // 2) Sample BOTH rings BEFORE any overlay (else we'd average our own red
@@ -228,13 +231,12 @@ void draw() {
   // 3) Overlay + preview discs for both rings, on top of the video.
   for (VideoContainer c : containers) c.drawRing(colorPipeline);
 
-  // 4) Phase 10: DMX still drives the MAIN (right) ring only, on the tick. Zero
-  // the buffer first so a cleared video blanks the ring. Dual-universe (both
-  // rings, two senders) is phase 12.
+  // 4) Phase 12a: on the tick, each container writes ITS ring and sends on ITS
+  // universe (right = UNIV field, left = right+1). Each zeroes the shared
+  // scratch first so a cleared video blanks both rings.
   if (dmxTick) {
-    resetDMXData();
-    if (frame != null) ringGrid.writeToDMXBuffer(dmxData, colorPipeline);
-    dmxSender.sendDMXData(dmxData);
+    boolean has = (frame != null);
+    for (VideoContainer c : containers) c.writeAndSend(dmxData, colorPipeline, has);
     lastDmxSendMillis = millis();
   }
 
@@ -709,12 +711,11 @@ void loadConfig() {
 void exit() {
   log("[exit] shutting down");
   saveConfig();                // phase 8 — persist current state before teardown
-  // Art-Net blackout — zero all channels and send once so the ring goes dark.
-  if (enableDMX && dmxSender != null) {
-    resetDMXData();
-    dmxSender.sendDMXData(dmxData);
-    delay(100);                 // let the packet flush before tear-down
-    dmxSender.stop();
+  // Art-Net blackout — zero + send on BOTH universes, flush, then tear down.
+  if (enableDMX) {
+    for (VideoContainer c : containers) c.blackout(dmxData);
+    delay(100);                 // let the packets flush before tear-down
+    for (VideoContainer c : containers) c.stopSender();
   }
   if (mediaHandler != null) mediaHandler.clearMedia();
   super.exit();

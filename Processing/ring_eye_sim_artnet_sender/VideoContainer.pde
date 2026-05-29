@@ -28,6 +28,10 @@ class VideoContainer {
   boolean mirrorH = false;
   boolean mirrorV = false;
 
+  // Art-Net (phase 12a) — this eye's own sender + universe.
+  DMXSender sender;          // lazy: built on startSender(), torn down on stopSender()
+  int       universe = 0;    // set on startSender()
+
   // Constant cyan main marker (same cyan as the adjust guides), top-left inset.
   static final float MARKER_SIZE  = 12.5;
   static final float MARKER_INSET = 8;
@@ -89,6 +93,37 @@ class VideoContainer {
     log("[" + label + "] mirror V: " + (mirrorV ? "ON" : "OFF"));
   }
   void toggleMirrorV() { setMirrorV(!mirrorV); }
+
+  // --- Art-Net (phase 12a) — this eye's own sender on its own universe ---
+
+  // Build (or rebuild) this eye's sender from the shared params + its universe.
+  void startSender(boolean useBroadcast, String ip, int port, int subnet, int uni) {
+    universe = uni;
+    if (sender != null) sender.stop();
+    sender = new DMXSender(useBroadcast, ip, port, universe, subnet);
+    sender.connect();
+  }
+
+  // Send an all-zero frame on this universe (blackout). Reuses the shared buffer.
+  void blackout(byte[] dmxData) {
+    if (sender == null) return;
+    java.util.Arrays.fill(dmxData, (byte) 0);
+    sender.sendDMXData(dmxData);
+  }
+
+  // Tear down this eye's sender (call after blackout + a short flush).
+  void stopSender() {
+    if (sender != null) { sender.stop(); sender = null; }
+  }
+
+  // Zero the shared scratch, write THIS ring through the pipeline, send on THIS
+  // universe. No-op if the sender isn't up.
+  void writeAndSend(byte[] dmxData, ColorPipeline pipeline, boolean hasContent) {
+    if (sender == null) return;
+    java.util.Arrays.fill(dmxData, (byte) 0);
+    if (hasContent) ring.writeToDMXBuffer(dmxData, pipeline);
+    sender.sendDMXData(dmxData);
+  }
 
   // Sample this ring from the framebuffer. The CALLER calls loadPixels() once
   // per frame before sampling both containers, so we don't pay two GPU

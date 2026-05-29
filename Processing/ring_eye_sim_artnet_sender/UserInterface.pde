@@ -502,32 +502,32 @@ class UserInterface {
   void startDMX() {
     artNetPort = parseInt(portField.getText());
     subnet     = parseInt(subnetField.getText());
-    universe   = parseInt(universeField.getText());
+    universe   = parseInt(universeField.getText());   // RIGHT/base universe; left = right+1 (12a)
     targetIP   = useBroadcast ? "255.255.255.255" : ipField.getText().trim();
 
-    if (dmxSender != null) dmxSender.stop();      // rebuild from current values
-    dmxSender = new DMXSender(useBroadcast, targetIP, artNetPort, universe, subnet);
-    dmxSender.connect();
+    // Phase 12a: build BOTH eyes' senders. Same target IP for now; left universe
+    // is right+1 (explicit per-container target/IP is phase 12b).
+    rightContainer.startSender(useBroadcast, targetIP, artNetPort, subnet, universe);
+    leftContainer.startSender( useBroadcast, targetIP, artNetPort, subnet, universe + 1);
     enableDMX = true;
 
     logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : targetIP)
-      + ":" + artNetPort + ", universe " + universe + ", subnet " + subnet
-      + " (" + (ringGrid.N * 3) + " ch active)");
+      + ":" + artNetPort + ", subnet " + subnet
+      + "  | R=U" + universe + "  L=U" + (universe + 1)
+      + "  (" + (ringGrid.N * 3) + " ch/ring)");
 
-    publishRingConfig();   // universe/subnet may have changed — keep receiver in sync
+    publishRingConfig();   // main (right) universe/subnet — keep the tester in sync
   }
 
   // Blackout the ring, flush, and tear down. enableDMX off; a following START
   // rebuilds the sender, so this also covers retargeting cleanly.
   void stopDMX() {
-    if (dmxSender != null) {
-      resetDMXData();                  // global blackout buffer
-      dmxSender.sendDMXData(dmxData);
-      delay(100);                      // let the packet flush
-      dmxSender.stop();
-    }
+    // Blackout + tear down BOTH universes (right + left).
+    for (VideoContainer c : containers) c.blackout(dmxData);
+    delay(100);                        // let the packets flush
+    for (VideoContainer c : containers) c.stopSender();
     enableDMX = false;
-    log("[artnet] STOP (blackout sent)");
+    log("[artnet] STOP (blackout sent on both universes)");
   }
 
   void updateDmxCaption() {

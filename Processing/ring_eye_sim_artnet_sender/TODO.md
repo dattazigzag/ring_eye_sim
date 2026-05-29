@@ -1,12 +1,12 @@
 # TODO
 
 ## In progress
-- [ ] **Phase 11** — Per-container H/V mirror (blit-time negative scale about the canvas center; sampling follows). 4 UI toggles (R-H/R-V/L-H/L-V). **Code written 2026-05-29 — awaiting user test.**
-  - Files: `VideoContainer.pde` (mirror in `render()` via `pushMatrix()` + `scale(±1,±1)` about the canvas center; `setMirrorH/V` + `toggleMirrorH/V`, logged); `UserInterface.pde` (4 mirror toggles — MIRROR cluster in the right half of the panel).
+- [ ] **Phase 12a** — Dual-universe Art-Net SEND (per-container `DMXSender`; right = the UNIV field, left = right+1). No UI/config change. **Code written 2026-05-29 — awaiting user test.**
+  - Files: `VideoContainer.pde` (`sender` + `universe`, `startSender`/`stopSender`/`blackout`/`writeAndSend`); `ring_eye_sim_artnet_sender.pde` (removed single `dmxSender`; DMX tick + `exit()` loop both); `UserInterface.pde` (`startDMX`/`stopDMX` build + blackout both).
 
 ## Up next — two-container build (right=main + left=clone)
-- [ ] **Phase 12** — Dual-universe Art-Net (per-container `DMXSender`, right=U0/left=U1) + Art-Net UI rework (shared BCAST/SUBNET/PORT + per-container IP/UNIV). MQTT publishes the right ring. (Optional 12b: UI polish.)
-- [ ] **Phase 13** — Config persistence for mirror flags + dual-universe (with legacy single-container config fallback → right).
+- [ ] **Phase 12b** — Art-Net UI rework: explicit per-container RIGHT/LEFT IP + UNIV, 960 panel relay out (left | mirror | art-net | mqtt), per-container target persistence (folds in the art-net part of 13).
+- [ ] **Phase 13** — Config persistence for mirror flags (+ any dual-universe bits not covered by 12b).
 
 See `contexts/02_build_plan.md` for full scope + test steps per phase.
 
@@ -23,6 +23,9 @@ See `contexts/02_build_plan.md` for full scope + test steps per phase.
 - [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
+- [x] **Phase 11 — Per-container H/V mirror** ✓ tested working 2026-05-29
+  - `VideoContainer.render()` wraps the blit in `pushMatrix()` + `scale(±1,±1)` about the canvas/ring center when `mirrorH`/`mirrorV` are set; marker + ring overlay stay upright; sampling reads the framebuffer after the blit so each ring follows its own mirror (no sampler change)
+  - `setMirrorH/V` + `toggleMirrorH/V` (logged); UI MIRROR cluster (R-H/R-V/L-H/L-V) in the right half of the panel
 - [x] **Phase 10 — Dual canvas + shared-frame display via `VideoContainer`** ✓ tested working 2026-05-29
   - Window 480→960; two 480 canvases (left=clone x=0, right=main x=480) from ONE decode; thin divider; cyan main marker top-left of the right canvas
   - `VideoContainer` (Canvas + RingGrid + isMain + mirror stubs); `containers[]`; `ringGrid` alias = right/main ring; `apply*` fan-out (N + grid/labels/preview → both rings); one shared `loadPixels()` per frame feeds both samplers
