@@ -1,12 +1,5 @@
 # TODO
 
-## Done (2026-05-29)
-- [x] **Phase 12b** — Art-Net UI rework + full panel relay out. **Done + tested 2026-05-29.**
-  - Banded panel (window 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent). Each eye is ONE row — FLIP H/V on the left, UNIVERSE + IP in the column's spare width (spacing polish 2026-05-29). Full-width console below.
-  - Per-eye ownership: each eye column owns FLIP + UNIVERSE + IP; only BROADCAST/PORT/SUBNET/START are shared. BCAST locks BOTH eye IP fields.
-  - Per-eye target persistence: nested `artnet.{right,left}.{ip,universe}` + shared `{useBroadcast,port,subnet}`; legacy flat `targetIP`/`universe` falls back onto the right (main) eye.
-  - Files: `ring_eye_sim_artnet_sender.pde` (`UI_H` 440; per-eye `universe` defaults; nested save/load; `publishRingConfig` → right eye; removed dead `targetIP`/`universe` globals); `VideoContainer.pde` (`targetIP` field); `UserInterface.pde` (full `setupControls` relay out, `updateIPField` both eyes, `startDMX` per-eye, `isTextfieldFocused`, `render` separators).
-
 ## Up next — two-container build (right=main + left=clone)
 - [ ] **Phase 13** — Config persistence for mirror flags (per-eye H/V). The art-net per-eye persistence is already folded into 12b.
 
@@ -25,6 +18,11 @@ See `contexts/02_build_plan.md` for full scope + test steps per phase.
 - [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
+- [x] **Phase 12b** — Art-Net UI rework + full panel relay out. **Done + tested 2026-05-29.**
+  - Banded panel (window 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent). Each eye is ONE row — FLIP H/V on the left, UNIVERSE + IP in the column's spare width (spacing polish 2026-05-29). Full-width console below.
+  - Per-eye ownership: each eye column owns FLIP + UNIVERSE + IP; only BROADCAST/PORT/SUBNET/START are shared. BCAST locks BOTH eye IP fields.
+  - Per-eye target persistence: nested `artnet.{right,left}.{ip,universe}` + shared `{useBroadcast,port,subnet}`; legacy flat `targetIP`/`universe` falls back onto the right (main) eye.
+  - Files: `ring_eye_sim_artnet_sender.pde` (`UI_H` 440; per-eye `universe` defaults; nested save/load; `publishRingConfig` → right eye; removed dead `targetIP`/`universe` globals); `VideoContainer.pde` (`targetIP` field); `UserInterface.pde` (full `setupControls` relay out, `updateIPField` both eyes, `startDMX` per-eye, `isTextfieldFocused`, `render` separators).
 - [x] **Phase 12a** — Dual-universe Art-Net SEND (per-container `DMXSender`). Tested + committed 2026-05-29. (Per-eye left universe is now its own UNIVERSE field, set in 12b — no longer right+1.)
 - [x] **Phase 11 — Per-container H/V mirror** ✓ tested working 2026-05-29
   - `VideoContainer.render()` wraps the blit in `pushMatrix()` + `scale(±1,±1)` about the canvas/ring center when `mirrorH`/`mirrorV` are set; marker + ring overlay stay upright; sampling reads the framebuffer after the blit so each ring follows its own mirror (no sampler change)
