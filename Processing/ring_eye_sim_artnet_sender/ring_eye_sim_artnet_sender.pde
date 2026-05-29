@@ -439,6 +439,9 @@ void connectionLost() {
 // Required by the MQTT library's reflective callback lookup even though the
 // server only publishes — the client constructor throws if it's absent.
 void messageReceived(String topic, byte[] payload) {
+  // Parameters are unused; required by MQTTClient.
+  // Prevent unused parameter warnings:
+  if (topic != null && payload != null) { }
   // no-op — this sketch only publishes, but the method must exist or the MQTTClient constructor throws.
 }
 
