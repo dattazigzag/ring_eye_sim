@@ -1,10 +1,10 @@
 # TODO
 
 ## In progress
-- (nothing in flight — docs updated for the two-container build; awaiting "go" to start Phase 10)
+- [ ] **Phase 10** — Dual canvas + shared-frame display via `VideoContainer` (visual only; DMX stays on the right ring). Window 480→960; cyan main marker on the right. **Code written 2026-05-29 — awaiting user test.**
+  - Files: new `VideoContainer.pde`; `ring_eye_sim_artnet_sender.pde` (two containers + `containers[]`, `ringGrid` alias = right ring, draw loop with one shared `loadPixels()`, `apply*` fan-out, 960 window, divider); `MediaHandler.getDisplayBounds(Canvas)`; `RingGrid.sampleColors()` no longer self-calls `loadPixels()`; UI N/G/L/P callbacks route through `apply*`.
 
 ## Up next — two-container build (right=main + left=clone)
-- [ ] **Phase 10** — Dual canvas + shared-frame display via `VideoContainer` (visual only; DMX stays on the right ring). Window 480→960; cyan main marker on the right.
 - [ ] **Phase 11** — Per-container H/V mirror (blit-time negative scale; sampling follows). 4 UI toggles (R-H/R-V/L-H/L-V).
 - [ ] **Phase 12** — Dual-universe Art-Net (per-container `DMXSender`, right=U0/left=U1) + Art-Net UI rework (shared BCAST/SUBNET/PORT + per-container IP/UNIV). MQTT publishes the right ring. (Optional 12b: UI polish.)
 - [ ] **Phase 13** — Config persistence for mirror flags + dual-universe (with legacy single-container config fallback → right).
