@@ -11,10 +11,11 @@
 //   drawRing()   — overlay (cells/labels/guides) + preview discs, both
 //                  internally gated. Drawn AFTER sampling.
 //
-// Phase 11 wraps render()'s blit in a negative scale() for mirror. A
-// per-container DMXSender + universe arrives in phase 12. For now both
-// containers display ONE shared decode and only the right (main) ring is
-// wired to DMX by the main sketch.
+// Phase 11 (this version): render()'s blit is wrapped in pushMatrix() +
+// negative scale() about the canvas CENTER when mirrorH/mirrorV are set, so
+// each ring samples its own (possibly flipped) content. A per-container
+// DMXSender + universe arrives in phase 12. For now both containers display
+// ONE shared decode and only the right (main) ring is wired to DMX.
 // =============================================================
 
 class VideoContainer {
@@ -39,12 +40,26 @@ class VideoContainer {
   }
 
   // Blit the shared frame into this canvas at the shared transform bounds.
-  // (Phase 11 will wrap the blit in a negative-scale mirror.) Null-safe: with
-  // no video the canvas is just cleared; the main marker still shows.
+  // When mirrorH/mirrorV are set, wrap the blit in a negative scale() about the
+  // CANVAS center (= ring center), so the ring samples flipped content and the
+  // two eyes read as mirror images of each other. The main marker is drawn
+  // AFTER popMatrix so it stays upright. Null-safe: with no video the canvas is
+  // just cleared; the marker still shows.
   void render(PImage frame, MediaHandler media) {
     if (frame != null) {
       Rect b = media.getDisplayBounds(canvas);
-      image(frame, b.x, b.y, b.w, b.h);
+      if (mirrorH || mirrorV) {
+        float cx = canvas.x + canvas.width  / 2.0;
+        float cy = canvas.y + canvas.height / 2.0;
+        pushMatrix();
+        translate(cx, cy);
+        scale(mirrorH ? -1 : 1, mirrorV ? -1 : 1);
+        translate(-cx, -cy);
+        image(frame, b.x, b.y, b.w, b.h);
+        popMatrix();
+      } else {
+        image(frame, b.x, b.y, b.w, b.h);
+      }
     }
     if (isMain) drawMainMarker();
   }
@@ -59,6 +74,21 @@ class VideoContainer {
     rect(canvas.x + MARKER_INSET, canvas.y + MARKER_INSET, MARKER_SIZE, MARKER_SIZE);
     popStyle();
   }
+
+  // Mirror — set/toggle pairs (UI-driven; no hotkeys in phase 11). Log on change.
+  void setMirrorH(boolean on) {
+    if (on == mirrorH) return;
+    mirrorH = on;
+    log("[" + label + "] mirror H: " + (mirrorH ? "ON" : "OFF"));
+  }
+  void toggleMirrorH() { setMirrorH(!mirrorH); }
+
+  void setMirrorV(boolean on) {
+    if (on == mirrorV) return;
+    mirrorV = on;
+    log("[" + label + "] mirror V: " + (mirrorV ? "ON" : "OFF"));
+  }
+  void toggleMirrorV() { setMirrorV(!mirrorV); }
 
   // Sample this ring from the framebuffer. The CALLER calls loadPixels() once
   // per frame before sampling both containers, so we don't pay two GPU

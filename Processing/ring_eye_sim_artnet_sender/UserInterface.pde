@@ -68,6 +68,10 @@ class UserInterface {
   Textfield mqttPortField;
   Toggle    mqttToggle;          // MQTT on/off (default on)
 
+  // Mirror toggles (phase 11) — per-container H/V flip (UI-only, no hotkeys)
+  Toggle    rMirrorHToggle, rMirrorVToggle;
+  Toggle    lMirrorHToggle, lMirrorVToggle;
+
   // Color pipeline controls (phase 7)
   Slider    brightnessSlider;
   Textfield gammaField;
@@ -358,6 +362,71 @@ class UserInterface {
       });
     mqttToggle.setCaptionLabel("ENABLE");
     mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
+
+    // ===== MIRROR cluster (right half of the panel; full relayout is 12b) =====
+    // Per-container H/V flip. R = right/main, L = left/clone. UI-only (no keys).
+    int mirX      = x + 520;
+    int mirLabelY = y + padding;        // aligns with the Art-Net label row
+    int mirRow1Y  = mirLabelY + 22;     // RIGHT: H / V
+    int mirRow2Y  = mirRow1Y + 36;      // LEFT:  H / V
+    int mirPitch  = 56;
+
+    cp5.addTextlabel("mirrorLabel")
+      .setText("MIRROR (R / L)")
+      .setPosition(mirX, mirLabelY)
+      .setColor(textColor);
+
+    rMirrorHToggle = cp5.addToggle("rMirrorHToggle")
+      .setPosition(mirX, mirRow1Y)
+      .setSize(elementHeight, elementHeight)
+      .setValue(rightContainer.mirrorH)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          rightContainer.setMirrorH(event.getController().getValue() > 0);
+        }
+      });
+    rMirrorHToggle.setCaptionLabel("R-H");
+
+    rMirrorVToggle = cp5.addToggle("rMirrorVToggle")
+      .setPosition(mirX + mirPitch, mirRow1Y)
+      .setSize(elementHeight, elementHeight)
+      .setValue(rightContainer.mirrorV)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          rightContainer.setMirrorV(event.getController().getValue() > 0);
+        }
+      });
+    rMirrorVToggle.setCaptionLabel("R-V");
+
+    lMirrorHToggle = cp5.addToggle("lMirrorHToggle")
+      .setPosition(mirX, mirRow2Y)
+      .setSize(elementHeight, elementHeight)
+      .setValue(leftContainer.mirrorH)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          leftContainer.setMirrorH(event.getController().getValue() > 0);
+        }
+      });
+    lMirrorHToggle.setCaptionLabel("L-H");
+
+    lMirrorVToggle = cp5.addToggle("lMirrorVToggle")
+      .setPosition(mirX + mirPitch, mirRow2Y)
+      .setSize(elementHeight, elementHeight)
+      .setValue(leftContainer.mirrorV)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+        public void controlEvent(CallbackEvent event) {
+          if (uiSyncing) return;
+          leftContainer.setMirrorV(event.getController().getValue() > 0);
+        }
+      });
+    lMirrorVToggle.setCaptionLabel("L-V");
 
     // ===== Console rect (full width, bottom) =====
     int hDivY = y + 184;                // horizontal separator above console (clears the color + Art-Net + MQTT rows)
