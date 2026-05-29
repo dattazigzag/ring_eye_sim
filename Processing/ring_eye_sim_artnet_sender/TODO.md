@@ -1,16 +1,27 @@
 # TODO
 
 ## In progress
-- (nothing in flight)
+- (nothing in flight — docs updated for the two-container build; awaiting "go" to start Phase 10)
 
-## Up next
-- (Phase 9 ESP32 ring receiver is the only remaining item — see Deferred)
+## Up next — two-container build (right=main + left=clone)
+- [ ] **Phase 10** — Dual canvas + shared-frame display via `VideoContainer` (visual only; DMX stays on the right ring). Window 480→960; cyan main marker on the right.
+- [ ] **Phase 11** — Per-container H/V mirror (blit-time negative scale; sampling follows). 4 UI toggles (R-H/R-V/L-H/L-V).
+- [ ] **Phase 12** — Dual-universe Art-Net (per-container `DMXSender`, right=U0/left=U1) + Art-Net UI rework (shared BCAST/SUBNET/PORT + per-container IP/UNIV). MQTT publishes the right ring. (Optional 12b: UI polish.)
+- [ ] **Phase 13** — Config persistence for mirror flags + dual-universe (with legacy single-container config fallback → right).
 
-## Decisions
-- `frameRate(30)` stays commented out — sketch runs uncapped (~56 fps). Decided 2026-05-29: NOT restoring it. Art-Net send is throttled independently to ~30 Hz via a millis timer (`DMX_SEND_INTERVAL_MS`) so the receiver isn't flooded.
+See `contexts/02_build_plan.md` for full scope + test steps per phase.
+
+## Decisions (two-container — confirmed 2026-05-29)
+- **Single decode, shared frame.** One `Movie`; both containers display the same frame. NOT two decodes + `jump()`-sync (that was only for the reference's two *different* videos). Frame-perfect sync, half the decode, one pipeline to babysit.
+- **Two rings, two universes, two ESP32s.** Right (main) = universe 0, left (clone) = universe 1; shared subnet 0. Each ring owns channels `[0,3N)` of its own universe. Broadcast (single 255.255.255.255, differ by universe) or unicast (per-container IPs).
+- **Mirror = per-container H + V**, applied at blit time; sampling reads the framebuffer after the blit so each ring follows its mirror with no sampler change. Mirror is the ONLY per-container property — transform/playback/N/color/grid-labels-preview are shared.
+- **Right = main** (screen x=480), marked with a constant 12.5×12.5 no-stroke cyan `(57,184,213)` square (top-left inset). Left = clone (x=0). Loading is via the `O` picker / OPEN VIDEO (no drag-and-drop under P3D); the one video fills both.
+- **Tester (`tools/`) mirrors the main/right only** — publishes the right ring's `{n,universe,subnet}`; no tester code change needed.
+- Mirror controls are **UI toggles only** (no hotkeys for now).
+- `frameRate(30)` stays commented out — sketch runs uncapped (~56 fps). Decided 2026-05-29: NOT restoring it. Art-Net send is throttled independently to ~30 Hz via a millis timer (`DMX_SEND_INTERVAL_MS`) so the receivers aren't flooded.
 
 ## Deferred
-- [ ] Phase 9 — ESP32 NeoPixel ring receiver (build only when Saurabh asks)
+- [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
 - [x] **Preview receiver sync (MQTT side-channel)** ✓ tested working 2026-05-29 — `tools/tailored_dmx_receiver`
