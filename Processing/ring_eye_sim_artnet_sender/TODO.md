@@ -1,9 +1,7 @@
 # TODO
 
-## In progress — Extension A: screen-capture input source (alternative to video)
-A transparent draggable always-on-top 480×480 lens (Swing `JFrame` + `java.awt.Robot`) feeds the grabbed desktop region into the SAME pipeline as video. Raw grab (ring sampler does the reduction), mutually exclusive with video, hotkey `D`, session-only. Full scope + per-step tests in `contexts/02_build_plan.md` → "Extension A".
-- [ ] **S4** — UI `screenToggle` in SOURCE/VIEW row + `D` hotkey + `syncSourceToggle()`. **Code written — awaiting test.** (SCREEN toggle placed right of OPEN VIDEO; GRID/LABELS/PREVIEW + N slider shifted one pitch right to make room. onChange → start/stopScreenCapture; `D` hotkey and any video-load call `syncSourceToggle()` to keep the toggle in sync.)
-- [ ] **S5** — Polish + docs (throttle, `exit()` disposes lens, gotchas, update 00/01/99 + TODO).
+## In progress
+_Nothing in flight. Extension A (screen-capture input source) is complete — see Done._
 
 See `contexts/02_build_plan.md` for full scope + test steps per phase.
 
@@ -20,6 +18,8 @@ See `contexts/02_build_plan.md` for full scope + test steps per phase.
 - [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
+- [x] **S5** — Extension A polish + docs. **Done.** Throttle is a constant (`SCREEN_GRAB_INTERVAL_MS` ~30 Hz); `exit()` disposes the lens via `clearMedia()` (no extra hook needed). Gotchas written to `99_gotchas.md` (no-wildcard AWT/Swing imports, macOS Screen-Recording permission + restart, Retina grab size, transparent-lens inset, off-EDT note, mutually-exclusive/session-only). `00_project_brief.md` (input-source paragraph + `D` hotkey row), `01_architecture.md` (ScreenGrabber.pde in layout + MediaHandler screen-mode note + `ScreenGrabber` subsection), `02_build_plan.md` (Extension A marked COMPLETE) all updated. (contexts/* are gitignored; only `TODO.md` is tracked.)
+- [x] **S4** — SCREEN toggle (SOURCE/VIEW row) + `D` hotkey + `syncSourceToggle()`. **Done + tested + committed** — toggle and `D` stay in sync both ways; loading a video auto-clears it; layout (SCREEN right of OPEN VIDEO, view toggles + N shifted one pitch right) confirmed clean.
 - [x] **S3** — Mutual exclusion (video ⇄ screen). **Done + tested** — `loadVideoFile()` calls `stopScreenCapture()` first (covers O / OPEN VIDEO / drop / config restore); screen-start tears down video; BACKSPACE/clear/exit dispose the lens. Exactly one input live at a time; clean both directions, no leftover lens.
 - [x] **S2** — `MediaHandler` screen-source mode. **Done + tested** — `D` shows the live region in the right panel, left clones it, ring sampling/preview/DMX track it; dragging the lens updates ~30 Hz. Grabber owned by MediaHandler; `isScreen` + `start/stopScreenCapture()`; throttled grab in `update()` → `updateProcessedImage()` → `currentFrame`; `clearMedia()` disposes the lens. Temp S1 probe + global removed.
 - [x] **S1** — `ScreenGrabber.pde`: transparent draggable always-on-top 480×480 lens + `Robot` (`start`/`stop`/`isActive`/`grab`). **Done + tested** — grab 472×472 (480 − 2×4px inset; this display returns logical-size pixels, not 2×), avg non-zero → macOS Screen-Recording permission OK. Gotcha fixed: no wildcard `java.awt.*` / `javax.swing.*` imports (they pull in `java.awt.Button`/`Canvas`, clashing with ControlP5 `Button` + the sketch's own `Canvas`) — use specific imports.
