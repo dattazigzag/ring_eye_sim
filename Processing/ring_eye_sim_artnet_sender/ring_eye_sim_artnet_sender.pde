@@ -77,8 +77,8 @@ MediaHandler     mediaHandler;
 ColorPipeline    colorPipeline;     // phase 7 — gamma/brightness applied to preview + DMX (shared)
 UserInterface    ui;
 SDrop            drop;
-ScreenGrabber    screenGrabber;             // Extension A: screen-capture input source (created on demand)
-int              lastScreenProbeMillis = 0; // TEMP (S1) — ~1 Hz grab-probe log; removed in S2
+// Screen-capture input source (Extension A) lives inside MediaHandler (its own
+// ScreenGrabber). Toggled with 'D'. No global needed.
 // Per-container DMXSender lives on each VideoContainer (phase 12a): right + left
 // each send their own ring on their own universe. No single global sender.
 
@@ -173,10 +173,6 @@ void setup() {
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
 
-  // Extension A — screen-capture input source. The lens window is created on
-  // demand (D / SCREEN toggle), not here; this just builds the Robot.
-  screenGrabber = new ScreenGrabber(this);
-
   // MQTT connect is driven by the UI MQTT toggle (default ON), which fires
   // startMQTT() as the panel is built — see UserInterface.startMQTT(). Nothing
   // to do here.
@@ -259,28 +255,6 @@ void draw() {
   strokeWeight(1);
   line(CANVAS_W, 0, CANVAS_W, CANVAS_H);
   noStroke();
-
-  // TEMP (S1) — probe the screen grabber ~1 Hz to validate capture + macOS
-  // Screen-Recording permission. Replaced by the MediaHandler screen-source
-  // mode in S2 (this whole block goes away then).
-  if (screenGrabber != null && screenGrabber.isActive()
-    && millis() - lastScreenProbeMillis > 1000) {
-    PImage sg = screenGrabber.grab();
-    if (sg != null) {
-      sg.loadPixels();
-      long sr = 0, sgn = 0, sb = 0;
-      int n = sg.pixels.length;
-      for (int i = 0; i < n; i++) {
-        int c = sg.pixels[i];
-        sr += (c >> 16) & 0xFF; sgn += (c >> 8) & 0xFF; sb += c & 0xFF;
-      }
-      log("[screen] grab " + sg.width + "x" + sg.height
-        + " avg(" + (sr/n) + "," + (sgn/n) + "," + (sb/n) + ")");
-    } else {
-      logWarn("[screen] grab null — permission not granted yet, or lens off-screen");
-    }
-    lastScreenProbeMillis = millis();
-  }
 
   // UI panel + FPS. ControlP5 draws its controls on top after draw() returns.
   ui.setFps(frameRate);
@@ -403,10 +377,11 @@ void keyPressed(KeyEvent event) {
     return;
   }
   if (key == 'd' || key == 'D') {
-    // Extension A (S1 temp) — toggle the screen-capture lens. S2 routes this
-    // through MediaHandler (unload video, feed the grab into the pipeline).
-    if (screenGrabber.isActive()) screenGrabber.stop();
-    else                          screenGrabber.start();
+    // Extension A — toggle the screen-capture lens as the input source. Routed
+    // through MediaHandler: it unloads any video + feeds the grab into the same
+    // pipeline (right panel shows it, left clones, ring samples).
+    if (mediaHandler.isScreen) mediaHandler.stopScreenCapture();
+    else                       mediaHandler.startScreenCapture();
     return;
   }
 

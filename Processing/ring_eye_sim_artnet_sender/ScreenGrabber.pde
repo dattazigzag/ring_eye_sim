@@ -44,7 +44,8 @@ class ScreenGrabber {
     this.parent = parent;
     try {
       robot = new Robot();
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       log("[screen] Robot init failed: " + e.getMessage());
       robot = null;
     }
@@ -76,7 +77,9 @@ class ScreenGrabber {
 
     java.awt.event.MouseAdapter ma = new java.awt.event.MouseAdapter() {
       Point off;
-      public void mousePressed(java.awt.event.MouseEvent e) { off = e.getPoint(); }
+      public void mousePressed(java.awt.event.MouseEvent e) {
+        off = e.getPoint();
+      }
       public void mouseDragged(java.awt.event.MouseEvent e) {
         Point p = lens.getLocation();
         lens.setLocation(p.x + e.getX() - off.x, p.y + e.getY() - off.y);
@@ -105,11 +108,11 @@ class ScreenGrabber {
     Point loc;
     try {
       loc = lens.getLocationOnScreen();
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       return null;                                 // window not realized yet
     }
-    Rectangle region = new Rectangle(loc.x + INSET, loc.y + INSET,
-                                     SIZE - 2*INSET, SIZE - 2*INSET);
+    Rectangle region = new Rectangle(loc.x + INSET, loc.y + INSET, SIZE - 2*INSET, SIZE - 2*INSET);
     BufferedImage shot = robot.createScreenCapture(region);
     int w = shot.getWidth(), h = shot.getHeight();
     if (w <= 0 || h <= 0) return null;

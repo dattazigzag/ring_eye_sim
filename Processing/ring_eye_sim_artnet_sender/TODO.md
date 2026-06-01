@@ -2,8 +2,7 @@
 
 ## In progress — Extension A: screen-capture input source (alternative to video)
 A transparent draggable always-on-top 480×480 lens (Swing `JFrame` + `java.awt.Robot`) feeds the grabbed desktop region into the SAME pipeline as video. Raw grab (ring sampler does the reduction), mutually exclusive with video, hotkey `D`, session-only. Full scope + per-step tests in `contexts/02_build_plan.md` → "Extension A".
-- [ ] **S2** — `MediaHandler` screen-source mode: throttled `grab()` → `updateProcessedImage()` → `currentFrame`; right panel shows it, left clones, ring samples.
-- [ ] **S3** — Mutual exclusion: video-load stops grabber; screen-start unloads video + cleans buffers; BACKSPACE/clear stops both.
+- [ ] **S3** — Mutual exclusion: video-load stops grabber; screen-start unloads video + cleans buffers; BACKSPACE/clear stops both. **Code written — awaiting test.** (Screen-start teardown + clearMedia/BACKSPACE/exit lens disposal landed in S2; this adds the last direction — `loadVideoFile()` calls `stopScreenCapture()` first, covering O / OPEN VIDEO / drop / config restore.)
 - [ ] **S4** — UI `screenToggle` in SOURCE/VIEW row + `D` hotkey + `syncSourceToggle()`.
 - [ ] **S5** — Polish + docs (throttle, `exit()` disposes lens, gotchas, update 00/01/99 + TODO).
 
@@ -22,7 +21,8 @@ See `contexts/02_build_plan.md` for full scope + test steps per phase.
 - [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
-- [x] **S1** — `ScreenGrabber.pde`: transparent draggable always-on-top 480×480 lens + `Robot` (`start`/`stop`/`isActive`/`grab`). Temp hotkey logs grab dims/avg → validates macOS Screen-Recording permission in-app.
+- [x] **S2** — `MediaHandler` screen-source mode. **Done + tested** — `D` shows the live region in the right panel, left clones it, ring sampling/preview/DMX track it; dragging the lens updates ~30 Hz. Grabber owned by MediaHandler; `isScreen` + `start/stopScreenCapture()`; throttled grab in `update()` → `updateProcessedImage()` → `currentFrame`; `clearMedia()` disposes the lens. Temp S1 probe + global removed.
+- [x] **S1** — `ScreenGrabber.pde`: transparent draggable always-on-top 480×480 lens + `Robot` (`start`/`stop`/`isActive`/`grab`). **Done + tested** — grab 472×472 (480 − 2×4px inset; this display returns logical-size pixels, not 2×), avg non-zero → macOS Screen-Recording permission OK. Gotcha fixed: no wildcard `java.awt.*` / `javax.swing.*` imports (they pull in `java.awt.Button`/`Canvas`, clashing with ControlP5 `Button` + the sketch's own `Canvas`) — use specific imports.
 - [x] **Phase 13** — Config persistence for per-eye mirror flags. **Done + tested — two-container build feature-complete.**
   - `saveConfig()` writes a `containers.{right,left}.{mirrorH,mirrorV}` block; `loadConfig()` restores the fields before the UI builds, so the FLIP toggles come back in the restored state (direct field set; the toggles' initial `setValue` reads the fields and doesn't re-fire `onChange`). Per-key default fallback → partial/absent file safe; an old config with no `containers` key defaults to no-flip.
   - Files: `ring_eye_sim_artnet_sender.pde` (`saveConfig` + `loadConfig` `containers` block).

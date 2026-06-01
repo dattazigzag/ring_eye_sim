@@ -102,6 +102,12 @@ class MediaHandler {
   }
 
   void loadVideoFile(String filePath) {
+    // Extension A — if the screen-capture source is active, drop it first so
+    // video and screen stay mutually exclusive (disposes the lens, clears the
+    // screen flag + buffers). No-op when screen isn't active. Covers every video
+    // entry point: O / OPEN VIDEO / drop / config restore all reach here.
+    if (isScreen) stopScreenCapture();
+
     // Stop and release any existing video before swapping
     if (loadedVideo != null) {
       loadedVideo.stop();
