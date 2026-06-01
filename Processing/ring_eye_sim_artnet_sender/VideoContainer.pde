@@ -7,7 +7,7 @@
 //   sampleRing() — this ring samples its OWN canvas region from the
 //                  framebuffer. The CALLER calls loadPixels() once per frame
 //                  before sampling both containers, so the two share a single
-//                  GPU readback.
+//                  GPU read back.
 //   drawRing()   — overlay (cells/labels/guides) + preview discs, both
 //                  internally gated. Drawn AFTER sampling.
 //
@@ -128,7 +128,7 @@ class VideoContainer {
 
   // Sample this ring from the framebuffer. The CALLER calls loadPixels() once
   // per frame before sampling both containers, so we don't pay two GPU
-  // readbacks. Each ring clamps to its own canvas region internally.
+  // read backs. Each ring clamps to its own canvas region internally.
   void sampleRing() {
     ring.sampleColors();
   }
