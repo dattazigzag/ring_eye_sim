@@ -43,8 +43,8 @@ void showWiFiConnected() {
 }
 
 // WiFi& Artnet stuff
-const char *ssid = "***REMOVED***";
-const char *pwd = "***REMOVED***";
+const char *ssid = "...";
+const char *pwd = "...";
 
 // const IPAddress ip(192, 168, 1, 201); // Adjust based on your router's DNS Settings
 // // const IPAddress ip(192, 168, 1, 202); // Adjust based on your router's DNS Settings; **but give the send setup a diff IP
