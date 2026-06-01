@@ -1,10 +1,5 @@
 # TODO
 
-## In progress
-- [ ] **Phase 13** — Config persistence for per-eye mirror flags. **Code written — awaiting test.**
-  - `saveConfig()` writes a `containers.{right,left}.{mirrorH,mirrorV}` block; `loadConfig()` restores the container fields before the UI builds, so the FLIP toggles come back in the restored state. Fields set directly (silent, like the universe/IP restore); the toggles' initial `setValue` reads the fields and doesn't re-fire `onChange`, so no double-application. Art-net per-eye persistence was already folded into 12b → the two-container build is feature-complete after this.
-  - Files: `ring_eye_sim_artnet_sender.pde` (`saveConfig` + `loadConfig` `containers` block).
-
 See `contexts/02_build_plan.md` for full scope + test steps per phase.
 
 ## Decisions (two-container — confirmed 2026-05-29)
@@ -20,6 +15,9 @@ See `contexts/02_build_plan.md` for full scope + test steps per phase.
 - [ ] **Phase 14** — ESP32 NeoPixel ring receivers **×2** (right→U0, left→U1; distinct static IPs). Build only when Saurabh asks. The `tools/` tester covers the right eye in the meantime.
 
 ## Done
+- [x] **Phase 13** — Config persistence for per-eye mirror flags. **Done + tested — two-container build feature-complete.**
+  - `saveConfig()` writes a `containers.{right,left}.{mirrorH,mirrorV}` block; `loadConfig()` restores the fields before the UI builds, so the FLIP toggles come back in the restored state (direct field set; the toggles' initial `setValue` reads the fields and doesn't re-fire `onChange`). Per-key default fallback → partial/absent file safe; an old config with no `containers` key defaults to no-flip.
+  - Files: `ring_eye_sim_artnet_sender.pde` (`saveConfig` + `loadConfig` `containers` block).
 - [x] **Phase 12b** — Art-Net UI rework + full panel relay out. **Done + tested 2026-05-29.**
   - Banded panel (window 960×920, `UI_H` 440): a SHARED band (source/view · color · art-net transport · mqtt) over a PER-EYE band split at center (`LEFT EYE - clone` | `RIGHT EYE - main`, right header in cyan accent). Each eye is ONE row — FLIP H/V on the left, UNIVERSE + IP in the column's spare width (spacing polish 2026-05-29). Full-width console below.
   - Per-eye ownership: each eye column owns FLIP + UNIVERSE + IP; only BROADCAST/PORT/SUBNET/START are shared. BCAST locks BOTH eye IP fields.
