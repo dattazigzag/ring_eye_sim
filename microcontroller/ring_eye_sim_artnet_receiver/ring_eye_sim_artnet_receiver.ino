@@ -1,4 +1,4 @@
-#include config.h 
+#include "config.h"
 #include <Adafruit_NeoPixel.h>
 #include <ArtnetWiFi.h>  // for chips that has wifi
 // #include <Artnet.h>     // can use both WiFi and Ethernet
@@ -44,8 +44,8 @@ void showWiFiConnected() {
 }
 
 // WiFi& Artnet stuff
-const char *ssid = "...";
-const char *pwd = "...";
+const char *ssid = WiFi_SSID;
+const char *pwd = WiFi_PASS;
 
 // const IPAddress ip(192, 168, 1, 201); // Adjust based on your router's DNS Settings
 // // const IPAddress ip(192, 168, 1, 202); // Adjust based on your router's DNS Settings; **but give the send setup a diff IP

@@ -788,6 +788,7 @@ void exit() {
     for (VideoContainer c : containers) c.stopSender();
   }
   if (mediaHandler != null) mediaHandler.clearMedia();
+  stopBrokerIfOurs();          // ESC / window close stops a broker WE launched (a reused one is left alone)
   super.exit();
 }
 

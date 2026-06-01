@@ -1,0 +1,4 @@
+  
+// WiFi Creds
+#define WiFi_SSID "YOUR_WIFI_SSID"
+#define WiFi_PASS "YOUR_WIFI_PASSWORD"

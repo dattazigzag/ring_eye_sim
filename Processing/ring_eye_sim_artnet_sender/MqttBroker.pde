@@ -4,11 +4,16 @@
 // Goal: "launch the sketch and MQTT just works." On startup we ENSURE a broker
 // is listening on mqttHost:mqttPort, then let the existing MQTT toggle connect.
 //
-// Model (decided): ENSURE-RUNNING, NEVER KILL.
-//   - broker already on the port  -> use it, leave it alone
-//   - else `mosquitto` on PATH     -> spawn one (it PERSISTS after we exit)
+// Model: ENSURE-RUNNING; on graceful quit, stop ONLY a broker we started.
+//   - broker already on the port  -> reuse it, never touch it (not ours)
+//   - else `mosquitto` on PATH     -> spawn one
 //   - else                          -> log once + carry on (MQTT just won't
 //                                       connect; Art-Net is unaffected)
+// Ownership: a broker WE spawned is stopped on a graceful exit — ESC / window
+//   close fires exit() -> stopBrokerIfOurs() -> destroy(). A broker we only
+//   reused is never killed. An IDE force-Stop may not run exit(), so a spawned
+//   broker can survive it (fine — the next launch reuses it via the port check;
+//   no zombie problem because we reuse rather than spawn a duplicate).
 // Gated on `enableMQTT` (off in config -> we touch nothing).
 //
 // Run SYNCHRONOUSLY from setup() BEFORE the UI builds: the default-ON MQTT toggle
@@ -30,9 +35,9 @@ import java.io.*;
 import java.net.Socket;
 import java.net.InetSocketAddress;
 
-// The broker we spawned (if any). Kept for reference/debug only — intentionally
-// NOT destroyed on exit (Model B: the broker persists for the tester + the next
-// launch's fast path). No shutdown hook, no dispose() teardown.
+// The broker WE spawned (null if we reused an existing one, or none is running).
+// Non-null == "ours" -> stopBrokerIfOurs() destroys it on a graceful quit. A
+// reused broker leaves this null, so it's never touched.
 Process mqttBrokerProcess = null;
 
 // -------------------------------------------------------------
@@ -65,6 +70,21 @@ void ensureBrokerRunning() {
     logOk("[broker] broker is up on " + mqttHost + ":" + mqttPort);
   } else {
     logWarn("[broker] broker didn't confirm on " + mqttPort + " within 1.5 s — toggle ENABLE off/on to retry if needed");
+  }
+}
+
+// -------------------------------------------------------------
+// Called from the sketch's exit() (ESC / window close). Stops ONLY a broker we
+// launched (mqttBrokerProcess non-null). A broker we reused is null here, so it
+// is left running. destroy() sends SIGTERM; mosquitto shuts down cleanly. An IDE
+// force-Stop may skip exit() entirely — then a spawned broker survives, and the
+// next launch just reuses it.
+// -------------------------------------------------------------
+void stopBrokerIfOurs() {
+  if (mqttBrokerProcess != null) {
+    log("[broker] quit — stopping the broker we launched (a reused broker is left alone)");
+    mqttBrokerProcess.destroy();
+    mqttBrokerProcess = null;
   }
 }
 
