@@ -1,3 +1,4 @@
+#include config.h 
 #include <Adafruit_NeoPixel.h>
 #include <ArtnetWiFi.h>  // for chips that has wifi
 // #include <Artnet.h>     // can use both WiFi and Ethernet

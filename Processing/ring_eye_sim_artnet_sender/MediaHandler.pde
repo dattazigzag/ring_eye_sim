@@ -59,9 +59,21 @@ class MediaHandler {
   boolean shouldBePlaying    = false;            // playback intent — gates the watchdog
   int     consecutiveReloads = 0;                // reset to 0 on any successful frame
 
+  // ---- screen-capture source (Extension A) — alternative to video ----
+  // The lens + Robot live in ScreenGrabber; MediaHandler drives a throttled
+  // grab() into the SAME pipeline (loadedImage -> updateProcessedImage ->
+  // currentFrame), so the two containers / sampler / DMX stay unchanged. A raw
+  // grab is fed (the ring sampler does the per-cell reduction). Mutually
+  // exclusive with video. Session-only (never restored on launch).
+  ScreenGrabber grabber;
+  boolean       isScreen = false;
+  static final int SCREEN_GRAB_INTERVAL_MS = 33;   // ~30 Hz (matches the DMX tick)
+  int           lastScreenGrabMillis = 0;
+
   MediaHandler(PApplet parent, Canvas canvas) {
     this.parent = parent;
     this.canvas = canvas;
+    grabber     = new ScreenGrabber(parent);   // Extension A — lens shown on demand
     resetTransform();
   }
 
@@ -133,6 +145,20 @@ class MediaHandler {
       currentFrame       = processedImage;
       lastFrameMillis    = millis();   // watchdog: a frame landed
       consecutiveReloads = 0;          // pipeline is healthy again
+    } else if (isScreen) {
+      // Throttled desktop grab -> same resize pipeline as video. The grab is a
+      // RAW frame (the ring sampler does the per-cell reduction). No watchdog /
+      // zero-image keepalive needed — those are video/GStreamer-only (gated on
+      // isVideo). The grabber reuses its output PImage; we consume it at once.
+      if (millis() - lastScreenGrabMillis >= SCREEN_GRAB_INTERVAL_MS) {
+        PImage g = grabber.grab();
+        if (g != null) {
+          loadedImage  = g;             // feed the grab as the detached source
+          updateProcessedImage();       // resize to canvas-fit -> processedImage
+          currentFrame = processedImage;
+        }
+        lastScreenGrabMillis = millis();
+      }
     }
     checkWatchdog();
   }
@@ -298,6 +324,40 @@ class MediaHandler {
   }
 
   // -------------------------------------------------------------
+  // Screen-capture source (Extension A) — start/stop. Mutually exclusive with
+  // video: starting screen tears down any video first; the lens window is
+  // shown/disposed by the ScreenGrabber. update() then feeds throttled grabs
+  // through the same resize pipeline as video.
+  // -------------------------------------------------------------
+
+  void startScreenCapture() {
+    // Tear down any video first — one input at a time.
+    if (loadedVideo != null) { loadedVideo.stop(); loadedVideo = null; }
+    isVideo            = false;
+    shouldBePlaying    = false;
+    currentPath        = null;
+    consecutiveReloads = 0;
+    loadedImage        = null;
+    processedImage     = null;
+    currentFrame       = null;
+
+    isScreen             = true;
+    lastScreenGrabMillis = 0;        // grab immediately on the next update()
+    resetTransform();                // center + fit the grab in the canvas
+    grabber.start();
+    log("[media] screen capture ON");
+  }
+
+  void stopScreenCapture() {
+    grabber.stop();
+    isScreen       = false;
+    loadedImage    = null;
+    processedImage = null;
+    currentFrame   = null;
+    log("[media] screen capture OFF");
+  }
+
+  // -------------------------------------------------------------
   // Clear
   // -------------------------------------------------------------
 
@@ -306,6 +366,8 @@ class MediaHandler {
       loadedVideo.stop();
       loadedVideo = null;
     }
+    if (grabber != null) grabber.stop();   // Extension A — also drop the lens
+    isScreen           = false;
     loadedImage        = null;
     processedImage     = null;
     currentFrame       = null;

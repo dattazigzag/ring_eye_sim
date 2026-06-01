@@ -61,7 +61,7 @@ class UserInterface {
   Toggle    broadcastToggle;
   Toggle    dmxToggle;            // START/STOP DMX (caption flips with state)
   Textfield rUnivField, lUnivField;   // per-eye universe (right=main, left=clone)
-  Textfield rIpField,   lIpField;     // per-eye unicast IP (locked under broadcast)
+  Textfield rIpField, lIpField;     // per-eye unicast IP (locked under broadcast)
 
   // MQTT controls — host/port editable only while the toggle is OFF
   Textfield mqttHostField;
@@ -125,8 +125,11 @@ class UserInterface {
       .setSize(84, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) { openFilePicker(); }
-      });
+      public void controlEvent(CallbackEvent event) {
+        openFilePicker();
+      }
+    }
+    );
     cp5.getController("openVideoBtn").setCaptionLabel("OPEN VIDEO");
 
     int togX     = chipX + 96;          // toggles start just right of the button
@@ -138,11 +141,12 @@ class UserInterface {
       .setValue(ringGrid.gridEnabled)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          applyGrid(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        applyGrid(event.getController().getValue() > 0);
+      }
+    }
+    );
     gridToggle.setCaptionLabel("GRID");
 
     labelsToggle = cp5.addToggle("labelsToggle")
@@ -151,11 +155,12 @@ class UserInterface {
       .setValue(ringGrid.labelsEnabled)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          applyLabels(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        applyLabels(event.getController().getValue() > 0);
+      }
+    }
+    );
     labelsToggle.setCaptionLabel("LABELS");
 
     previewToggle = cp5.addToggle("previewToggle")
@@ -164,11 +169,12 @@ class UserInterface {
       .setValue(ringGrid.previewEnabled)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          applyPreview(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        applyPreview(event.getController().getValue() > 0);
+      }
+    }
+    );
     previewToggle.setCaptionLabel("PREVIEW");
 
     // N slider — shortened; caption to the RIGHT; fill always visible (accent
@@ -184,10 +190,11 @@ class UserInterface {
       .setColorActive(accentColor)
       .setColorValueLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          applyN((int) event.getController().getValue());   // both rings + MQTT publish
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        applyN((int) event.getController().getValue());   // both rings + MQTT publish
+      }
+    }
+    );
     nSlider.getCaptionLabel()
       .align(ControlP5.RIGHT_OUTSIDE, ControlP5.CENTER)
       .setPaddingX(8)
@@ -204,11 +211,12 @@ class UserInterface {
       .setColorActive(accentColor)
       .setColorValueLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          colorPipeline.setBrightness(event.getController().getValue() / 100.0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        colorPipeline.setBrightness(event.getController().getValue() / 100.0);
+      }
+    }
+    );
     brightnessSlider.getCaptionLabel()
       .align(ControlP5.RIGHT_OUTSIDE, ControlP5.CENTER)
       .setPaddingX(8)
@@ -223,14 +231,15 @@ class UserInterface {
       .setColor(textColor)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          float g = float(gammaField.getText());
-          if (!Float.isNaN(g)) colorPipeline.setGamma(g);
-          // Reflect the applied (clamped) value back into the field. setText
-          // doesn't re-fire onChange, so no recursion.
-          gammaField.setText(nf(colorPipeline.gamma, 1, 2));
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        float g = float(gammaField.getText());
+        if (!Float.isNaN(g)) colorPipeline.setGamma(g);
+        // Reflect the applied (clamped) value back into the field. setText
+        // doesn't re-fire onChange, so no recursion.
+        gammaField.setText(nf(colorPipeline.gamma, 1, 2));
+      }
+    }
+    );
     gammaField.setCaptionLabel("GAMMA");
 
     modeButton = cp5.addButton("modeButton")
@@ -238,11 +247,12 @@ class UserInterface {
       .setSize(160, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          colorPipeline.cycleMode();
-          modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        colorPipeline.cycleMode();
+        modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
+      }
+    }
+    );
     modeButton.setCaptionLabel("MODE: " + colorPipeline.getModeName());
 
     // ===== SHARED band: row3 = ART-NET transport (bcast / port / subnet / start) =====
@@ -254,11 +264,12 @@ class UserInterface {
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          useBroadcast = event.getController().getValue() > 0;
-          updateIPField();                       // locks/unlocks BOTH eye IP fields
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        useBroadcast = event.getController().getValue() > 0;
+        updateIPField();                       // locks/unlocks BOTH eye IP fields
+      }
+    }
+    );
     broadcastToggle.setCaptionLabel("BCAST");
 
     portField = cp5.addTextfield("portField")
@@ -284,13 +295,14 @@ class UserInterface {
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;                 // ignore programmatic sync from 'A'
-          if (event.getController().getValue() > 0) startDMX();
-          else                                      stopDMX();
-          updateDmxCaption();
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;                 // ignore programmatic sync from 'A'
+        if (event.getController().getValue() > 0) startDMX();
+        else                                      stopDMX();
+        updateDmxCaption();
+      }
+    }
+    );
     dmxToggle.setCaptionLabel("START DMX");
 
     // ===== SHARED band: row4 = MQTT (enable / broker / port) =====
@@ -319,12 +331,13 @@ class UserInterface {
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          if (event.getController().getValue() > 0) startMQTT();
-          else                                      stopMQTT();
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        if (event.getController().getValue() > 0) startMQTT();
+        else                                      stopMQTT();
+      }
+    }
+    );
     mqttToggle.setCaptionLabel("ENABLE");
     mqttToggle.setValue(enableMQTT ? 1 : 0);   // default ON -> fires onChange -> startMQTT (connect) + field lock
 
@@ -354,11 +367,12 @@ class UserInterface {
       .setValue(leftContainer.mirrorH)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          leftContainer.setMirrorH(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        leftContainer.setMirrorH(event.getController().getValue() > 0);
+      }
+    }
+    );
     lMirrorHToggle.setCaptionLabel("FLIP H");
 
     lMirrorVToggle = cp5.addToggle("lMirrorVToggle")
@@ -367,11 +381,12 @@ class UserInterface {
       .setValue(leftContainer.mirrorV)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          leftContainer.setMirrorV(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        leftContainer.setMirrorV(event.getController().getValue() > 0);
+      }
+    }
+    );
     lMirrorVToggle.setCaptionLabel("FLIP V");
 
     lUnivField = cp5.addTextfield("lUnivField")
@@ -398,11 +413,12 @@ class UserInterface {
       .setValue(rightContainer.mirrorH)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          rightContainer.setMirrorH(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        rightContainer.setMirrorH(event.getController().getValue() > 0);
+      }
+    }
+    );
     rMirrorHToggle.setCaptionLabel("FLIP H");
 
     rMirrorVToggle = cp5.addToggle("rMirrorVToggle")
@@ -411,11 +427,12 @@ class UserInterface {
       .setValue(rightContainer.mirrorV)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
-        public void controlEvent(CallbackEvent event) {
-          if (uiSyncing) return;
-          rightContainer.setMirrorV(event.getController().getValue() > 0);
-        }
-      });
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        rightContainer.setMirrorV(event.getController().getValue() > 0);
+      }
+    }
+    );
     rMirrorVToggle.setCaptionLabel("FLIP V");
 
     rUnivField = cp5.addTextfield("rUnivField")
@@ -479,14 +496,14 @@ class UserInterface {
   // Backspace in the GAMMA/IP/etc. field would clear the loaded video.
   boolean isTextfieldFocused() {
     return (rIpField      != null && rIpField.isFocus())
-        || (lIpField      != null && lIpField.isFocus())
-        || (rUnivField    != null && rUnivField.isFocus())
-        || (lUnivField    != null && lUnivField.isFocus())
-        || (portField     != null && portField.isFocus())
-        || (subnetField   != null && subnetField.isFocus())
-        || (gammaField    != null && gammaField.isFocus())
-        || (mqttHostField != null && mqttHostField.isFocus())
-        || (mqttPortField != null && mqttPortField.isFocus());
+      || (lIpField      != null && lIpField.isFocus())
+      || (rUnivField    != null && rUnivField.isFocus())
+      || (lUnivField    != null && lUnivField.isFocus())
+      || (portField     != null && portField.isFocus())
+      || (subnetField   != null && subnetField.isFocus())
+      || (gammaField    != null && gammaField.isFocus())
+      || (mqttHostField != null && mqttHostField.isFocus())
+      || (mqttPortField != null && mqttPortField.isFocus());
   }
 
   // -------------------------------------------------------------
@@ -525,7 +542,7 @@ class UserInterface {
     leftContainer.targetIP  = useBroadcast ? "255.255.255.255" : lIpField.getText().trim();
 
     rightContainer.startSender(useBroadcast, rightContainer.targetIP, artNetPort, subnet, rightContainer.universe);
-    leftContainer.startSender( useBroadcast, leftContainer.targetIP,  artNetPort, subnet, leftContainer.universe);
+    leftContainer.startSender( useBroadcast, leftContainer.targetIP, artNetPort, subnet, leftContainer.universe);
     enableDMX = true;
 
     logOk("[artnet] START -> " + (useBroadcast ? "broadcast" : "unicast")
@@ -591,11 +608,18 @@ class UserInterface {
     updateMqttFieldsLock();
     try {
       if (mqtt == null) mqtt = new MQTTClient(parent);
-      else { try { mqtt.disconnect(); } catch (Exception ignore) { } }   // drop old session first
+      else {
+        try {
+          mqtt.disconnect();
+        }
+        catch (Exception ignore) {
+        }
+      }   // drop old session first
       mqttReady = false;
       mqtt.connect(mqttBrokerURI(), "ring_eye_sim_server");
       logOk("[mqtt] connecting -> " + mqttBrokerURI());
-    } catch (Exception e) {
+    }
+    catch (Exception e) {
       mqttReady = false;
       logWarn("[mqtt] no broker at " + mqttBrokerURI() + " — toggle ENABLE off/on to retry. (Art-Net unaffected.)");
     }
@@ -604,7 +628,13 @@ class UserInterface {
   void stopMQTT() {
     enableMQTT = false;
     updateMqttFieldsLock();
-    if (mqtt != null) { try { mqtt.disconnect(); } catch (Exception ignore) { } }
+    if (mqtt != null) {
+      try {
+        mqtt.disconnect();
+      }
+      catch (Exception ignore) {
+      }
+    }
     mqttReady = false;
     log("[mqtt] disconnected (sync off)");
   }
