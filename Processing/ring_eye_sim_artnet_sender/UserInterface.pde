@@ -51,6 +51,7 @@ class UserInterface {
 
   // Control references
   Slider nSlider;
+  Toggle screenToggle;     // Extension A — screen-capture input source (SOURCE / VIEW row)
   Toggle gridToggle;
   Toggle labelsToggle;
   Toggle previewToggle;
@@ -132,8 +133,27 @@ class UserInterface {
     );
     cp5.getController("openVideoBtn").setCaptionLabel("OPEN VIDEO");
 
-    int togX     = chipX + 96;          // toggles start just right of the button
     int togPitch = 46;                  // tight, grouped spacing
+    int srcX     = chipX + 96;          // SCREEN source toggle — just right of OPEN VIDEO
+    int togX     = srcX + togPitch;     // view toggles start one pitch past SCREEN
+
+    // SCREEN — screen-capture input source (Extension A), an alternative to
+    // video. onChange starts/stops the grabber via MediaHandler (mutually
+    // exclusive with video). Kept in sync with the 'D' hotkey + video-load via
+    // syncSourceToggle().
+    screenToggle = cp5.addToggle("screenToggle")
+      .setPosition(srcX, row1Y)
+      .setSize(elementHeight, elementHeight)
+      .setColorCaptionLabel(textColor)
+      .onChange(new CallbackListener() {
+      public void controlEvent(CallbackEvent event) {
+        if (uiSyncing) return;
+        if (event.getController().getValue() > 0) mediaHandler.startScreenCapture();
+        else                                      mediaHandler.stopScreenCapture();
+      }
+    }
+    );
+    screenToggle.setCaptionLabel("SCREEN");
 
     gridToggle = cp5.addToggle("gridToggle")
       .setPosition(togX, row1Y)
@@ -180,7 +200,7 @@ class UserInterface {
     // N slider — shortened; caption to the RIGHT; fill always visible (accent
     // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
-      .setPosition(chipX + 286, row1Y)
+      .setPosition(chipX + 332, row1Y)
       .setSize(108, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
       .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
@@ -473,6 +493,16 @@ class UserInterface {
     gridToggle.setValue(ringGrid.gridEnabled ? 1 : 0);
     labelsToggle.setValue(ringGrid.labelsEnabled ? 1 : 0);
     previewToggle.setValue(ringGrid.previewEnabled ? 1 : 0);
+    uiSyncing = false;
+  }
+
+  // Reflect the current input source (screen on/off) into the SCREEN toggle
+  // without re-firing its onChange. Called from the 'D' hotkey and after a
+  // video loads (which turns screen off). Guarded by uiSyncing.
+  void syncSourceToggle() {
+    if (screenToggle == null) return;
+    uiSyncing = true;
+    screenToggle.setValue(mediaHandler.isScreen ? 1 : 0);
     uiSyncing = false;
   }
 

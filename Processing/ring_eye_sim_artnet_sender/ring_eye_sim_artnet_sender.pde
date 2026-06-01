@@ -280,6 +280,7 @@ void videoFileSelected(File selection) {
   String path = selection.getAbsolutePath();
   log("[picker] " + path);
   mediaHandler.loadMedia(path);
+  if (ui != null) ui.syncSourceToggle();   // loading a video turns screen off — reflect it
 }
 
 void dropEvent(DropEvent event) {
@@ -301,6 +302,7 @@ void dropEvent(DropEvent event) {
   String path = event.filePath();
   log("[drop] " + path);
   mediaHandler.loadMedia(path);
+  if (ui != null) ui.syncSourceToggle();   // loading a video turns screen off — reflect it
 }
 
 // =============================================================
@@ -382,6 +384,7 @@ void keyPressed(KeyEvent event) {
     // pipeline (right panel shows it, left clones, ring samples).
     if (mediaHandler.isScreen) mediaHandler.stopScreenCapture();
     else                       mediaHandler.startScreenCapture();
+    ui.syncSourceToggle();     // reflect the new source state into the SCREEN toggle
     return;
   }
 
