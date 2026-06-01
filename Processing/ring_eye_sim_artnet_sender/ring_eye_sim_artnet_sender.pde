@@ -168,14 +168,21 @@ void setup() {
   // to the restored values. Art-Net is NOT auto-started.
   loadConfig();
 
+  // Best-effort: make sure a local MQTT broker is listening BEFORE the UI builds.
+  // The default-ON MQTT toggle fires startMQTT() during construction, so ensuring
+  // the broker first means the connect finds it already up (no race). Ensures one
+  // if the port's dead, never kills an existing one, logs + carries on if
+  // mosquitto isn't installed. Gated on enableMQTT. See MqttBroker.pde.
+  ensureBrokerRunning();
+
   ui            = new UserInterface(this, 0, CANVAS_H, SKETCH_W, UI_H);
 
   // SDrop kept registered (no-op under P3D). Restores drag-drop if P3D is off.
   drop         = new SDrop(this);
 
   // MQTT connect is driven by the UI MQTT toggle (default ON), which fires
-  // startMQTT() as the panel is built — see UserInterface.startMQTT(). Nothing
-  // to do here.
+  // startMQTT() as the panel is built — see UserInterface.startMQTT(). The broker
+  // was already ensured above (ensureBrokerRunning), so the connect finds it up.
 
   log("[setup] ring_eye_sim_artnet_sender started");
   log("[setup] canvas: " + CANVAS_W + "x" + CANVAS_H + ", pixelDensity=" + pixelDensity);
