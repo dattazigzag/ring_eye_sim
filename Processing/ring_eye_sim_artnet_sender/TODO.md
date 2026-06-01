@@ -1,7 +1,9 @@
 # TODO
 
-## Up next — two-container build (right=main + left=clone)
-- [ ] **Phase 13** — Config persistence for mirror flags (per-eye H/V). The art-net per-eye persistence is already folded into 12b.
+## In progress
+- [ ] **Phase 13** — Config persistence for per-eye mirror flags. **Code written — awaiting test.**
+  - `saveConfig()` writes a `containers.{right,left}.{mirrorH,mirrorV}` block; `loadConfig()` restores the container fields before the UI builds, so the FLIP toggles come back in the restored state. Fields set directly (silent, like the universe/IP restore); the toggles' initial `setValue` reads the fields and doesn't re-fire `onChange`, so no double-application. Art-net per-eye persistence was already folded into 12b → the two-container build is feature-complete after this.
+  - Files: `ring_eye_sim_artnet_sender.pde` (`saveConfig` + `loadConfig` `containers` block).
 
 See `contexts/02_build_plan.md` for full scope + test steps per phase.
 

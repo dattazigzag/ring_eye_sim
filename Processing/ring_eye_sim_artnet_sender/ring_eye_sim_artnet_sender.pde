@@ -610,6 +610,19 @@ void saveConfig() {
   a.setJSONObject("left", al);
   root.setJSONObject("artnet", a);
 
+  // Per-eye mirror flags (phase 13) — H/V flip per container (UI toggles).
+  // Persisted so each eye's orientation survives a relaunch.
+  JSONObject ct = new JSONObject();
+  JSONObject ctr = new JSONObject();
+  ctr.setBoolean("mirrorH", rightContainer.mirrorH);
+  ctr.setBoolean("mirrorV", rightContainer.mirrorV);
+  JSONObject ctl = new JSONObject();
+  ctl.setBoolean("mirrorH", leftContainer.mirrorH);
+  ctl.setBoolean("mirrorV", leftContainer.mirrorV);
+  ct.setJSONObject("right", ctr);
+  ct.setJSONObject("left", ctl);
+  root.setJSONObject("containers", ct);
+
   JSONObject c = new JSONObject();
   c.setInt("mode", colorPipeline.mode);          // 0=RAW, 1=GAMMA, 2=GAMMA+BRIGHT
   c.setFloat("gamma", colorPipeline.gamma);
@@ -690,6 +703,22 @@ void loadConfig() {
       JSONObject al = a.getJSONObject("left");
       leftContainer.targetIP = al.getString("ip", leftContainer.targetIP);
       leftContainer.universe = al.getInt("universe", leftContainer.universe);
+    }
+  }
+
+  // Per-eye mirror flags (phase 13). Set the container fields directly — the UI
+  // FLIP toggles read these for their initial state when the panel builds next.
+  if (root.hasKey("containers")) {
+    JSONObject ct = root.getJSONObject("containers");
+    if (ct.hasKey("right")) {
+      JSONObject ctr = ct.getJSONObject("right");
+      rightContainer.mirrorH = ctr.getBoolean("mirrorH", rightContainer.mirrorH);
+      rightContainer.mirrorV = ctr.getBoolean("mirrorV", rightContainer.mirrorV);
+    }
+    if (ct.hasKey("left")) {
+      JSONObject ctl = ct.getJSONObject("left");
+      leftContainer.mirrorH = ctl.getBoolean("mirrorH", leftContainer.mirrorH);
+      leftContainer.mirrorV = ctl.getBoolean("mirrorV", leftContainer.mirrorV);
     }
   }
 
