@@ -130,6 +130,14 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
           security delete-keychain "$KEYCHAIN"
 
+      - name: "9d · Add 'START HERE' helper for end users"
+        run: |
+          BUILD="${GITHUB_WORKSPACE}/${SKETCH}/build"
+          # friendly spaced name in the zip; chmod so the exec bit survives download/unzip
+          cp "${GITHUB_WORKSPACE}/ci/START_HERE.command" "$BUILD/START HERE.command"
+          chmod +x "$BUILD/START HERE.command"
+          ls -l "$BUILD"
+
       - name: "10 · Package build into a zip"
         run: |
           ZIP="${ARTIFACT_BASENAME}-${{ steps.ver.outputs.label }}-macos-aarch64.zip"

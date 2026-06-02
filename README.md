@@ -53,21 +53,21 @@ flowchart LR
 
 ### A · The released app (no Processing needed)
 
-Download the latest zip from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** — CI signs it automatically (see **Distributing** for the why).
+Download the latest zip from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** and unzip it. CI signs the app automatically (see **Distributing** for the why).
 
-1. **Java 17+ runtime** — required once (the app is native arm64 with no embedded Java):
-   ```bash
-   brew install --cask temurin@17
-   ```
-2. Unzip, then clear the download quarantine and launch:
-   ```bash
-   xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app
-   open ring_eye_sim_artnet_sender.app
-   ```
-   First launch may say "unidentified developer" — **right-click the app → Open** once to get past it.
-3. **Enable Art-Net (`A`)** → macOS shows **"…wants to find devices on your local network"** → **Allow**. This is required; without it macOS 26 silently blocks all DMX (same idea as the Screen-Recording grant for the lens).
-4. *(Optional)* screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch.
-5. *(Optional)* live tester sync → `brew install mosquitto` (the app auto-starts it).
+**Easiest — use the bundled helper:**
+1. In the unzipped folder, **right-click `START HERE.command` → Open** (first time only; macOS asks once because the app is self-signed, not Apple-notarized).
+2. It clears the download quarantine, checks for Java 17+, and launches the app. If Java is missing it prints the one-line install.
+3. In the app, press **`A`** to enable Art-Net → click **Allow** on the **"find devices on your local network"** prompt. Required — without it macOS 26 silently blocks all DMX.
+
+**Manual equivalent** (if you'd rather use Terminal):
+```bash
+brew install --cask temurin@17                                   # once: Java 17+ runtime
+xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app    # clear quarantine
+open ring_eye_sim_artnet_sender.app
+```
+
+*(Optional)* screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch. *(Optional)* live tester sync → `brew install mosquitto` (the app auto-starts it).
 
 > **Apple Silicon only**, no Rosetta. Java isn't bundled (keeps it native + small), so a Java 17+ runtime must be present.
 
@@ -147,7 +147,7 @@ Builds run on a GitHub-hosted **macOS Apple-Silicon** runner — no local export
   The workflow exports the app and attaches `ring_eye_sim-v1.0.0-macos-aarch64.zip` to a new **GitHub Release** (notes auto-generated).
 - **Dry run** — run **Export macOS (Apple Silicon)** from the **Actions** tab (`workflow_dispatch`): same zip as a downloadable **artifact**, no release created.
 
-It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Silicon GStreamer natives fresh, adds the vendored libraries in `ci/libraries/`, exports `--no-java --variant=macos-aarch64`, and patches the bundle's `Info.plist` (reverse-DNS id + `NSLocalNetworkUsageDescription`). The release zip is **unsigned** — sign it before handing it out (see **Distributing**). See `.github/workflows/export-macos.yml`.
+It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Silicon GStreamer natives fresh, adds the vendored libraries in `ci/libraries/`, exports `--no-java --variant=macos-aarch64`, patches the bundle's `Info.plist` (reverse-DNS id + `NSLocalNetworkUsageDescription`), **code-signs** it with the `RingEyeSim Local` identity from repo secrets, and bundles the `START HERE.command` helper. See **Distributing** and `.github/workflows/export-macos.yml`.
 
 ## Repo layout
 
@@ -157,6 +157,7 @@ It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Si
 | `Processing/tools/tailored_dmx_receiver/` | software preview tester |
 | `ci/libraries/` | Processing libraries vendored for CI |
 | `ci/sign-release.sh` | sign a release locally before distributing (macOS) |
+| `ci/START_HERE.command` | helper bundled in the zip: de-quarantine + Java check + launch |
 | `.github/workflows/export-macos.yml` | export + release pipeline |
 
 ## License
