@@ -39,6 +39,13 @@ import processing.event.KeyEvent;
 // receiver can mirror it live. Optional: the sketch runs fine with no broker.
 import mqtt.*;
 
+// App icon (macOS Dock / Cmd-Tab) — Java Taskbar API + ImageIO to load
+// data/icon.png at runtime. surface.setIcon() is unreliable on macOS, so the
+// Dock icon is set directly via Taskbar. (Specific imports, not java.awt.*, to
+// avoid the Button/Canvas collisions noted in ScreenGrabber.pde.)
+import java.awt.Taskbar;
+import javax.imageio.ImageIO;
+
 // =============================================================
 // Constants
 // =============================================================
@@ -154,6 +161,21 @@ void setup() {
 
   // Window title — display name only; the sketch folder/name is unchanged.
   surface.setTitle("EYE SIMULATOR MIDDLEWARE");
+
+  // Dock / Cmd-Tab icon (macOS) from data/icon.png, via the Java Taskbar API
+  // (reliable on mac; surface.setIcon() is a no-op there). dataPath() resolves
+  // both in the PDE and inside the exported .app bundle. The persistent .app
+  // icon for releases is set separately in CI (.icns). Wrapped so a missing
+  // file / unsupported platform never blocks startup.
+  try {
+    if (Taskbar.isTaskbarSupported()) {
+      Taskbar.getTaskbar().setIconImage(ImageIO.read(new File(dataPath("icon.png"))));
+      log("[setup] dock icon set from data/icon.png");
+    }
+  }
+  catch (Exception e) {
+    logWarn("[setup] dock icon not set: " + e.getMessage());
+  }
 
   //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 

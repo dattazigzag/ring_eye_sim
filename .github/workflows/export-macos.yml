@@ -101,6 +101,38 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print :NSLocalNetworkUsageDescription" "$PLIST"
           # Signed next, in step 9c (macOS 26 needs a real identity, not ad-hoc).
 
+      - name: "9b2 · Embed app icon (.icns from data/icon.png) — before signing"
+        run: |
+          APP="${GITHUB_WORKSPACE}/${SKETCH}/build/ring_eye_sim_artnet_sender.app"
+          PLIST="$APP/Contents/Info.plist"
+          SRC="${GITHUB_WORKSPACE}/${SKETCH}/data/icon.png"
+          if [ ! -f "$SRC" ]; then
+            echo "No data/icon.png committed — skipping app icon (build continues)."
+            exit 0
+          fi
+          ICONSET="$RUNNER_TEMP/icon.iconset"
+          mkdir -p "$ICONSET"
+          # Standard slots from the 512px master. The 512@2x (1024) retina slot is
+          # omitted — source is 512px; macOS scales the 512 for that case. sips +
+          # iconutil ship with macOS runners.
+          sips -z 16 16   "$SRC" --out "$ICONSET/icon_16x16.png"      >/dev/null
+          sips -z 32 32   "$SRC" --out "$ICONSET/icon_16x16@2x.png"   >/dev/null
+          sips -z 32 32   "$SRC" --out "$ICONSET/icon_32x32.png"      >/dev/null
+          sips -z 64 64   "$SRC" --out "$ICONSET/icon_32x32@2x.png"   >/dev/null
+          sips -z 128 128 "$SRC" --out "$ICONSET/icon_128x128.png"    >/dev/null
+          sips -z 256 256 "$SRC" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
+          sips -z 256 256 "$SRC" --out "$ICONSET/icon_256x256.png"    >/dev/null
+          sips -z 512 512 "$SRC" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
+          sips -z 512 512 "$SRC" --out "$ICONSET/icon_512x512.png"    >/dev/null
+          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/icon.icns"
+          # Point the bundle at our icon (Set if the key exists, else Add).
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string icon" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName icon" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string icon" "$PLIST"
+          echo "Embedded icon.icns (pre-signing):"
+          ls -l "$APP/Contents/Resources/" | grep -i icns || true
+
       - name: "9c · Sign the app (self-signed identity from repo secrets)"
         env:
           P12_BASE64:   ${{ secrets.MACOS_CERT_P12_BASE64 }}
