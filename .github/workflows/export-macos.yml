@@ -1,0 +1,86 @@
+name: Export macOS (Apple Silicon)
+
+# TWO WAYS TO RUN:
+#   - Manual test: Actions tab -> this workflow -> "Run workflow" (workflow_dispatch).
+#       Produces a downloadable artifact on the run page. Does NOT create a release.
+#   - Real release: push a version tag, e.g. git tag v1.0.0 && git push origin v1.0.0
+#       Produces the artifact AND a GitHub Release with the zip attached.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write          # lets GITHUB_TOKEN create the release (private repo OK)
+
+env:
+  PROCESSING_VERSION: "4.5.2"
+  # sha256 of processing-4.5.2-macos-aarch64.dmg (from the 4.5.2 release page)
+  PROCESSING_DMG_SHA256: "27772a40761ae02ee470cdebb6a8e4a8265926b55771b7249a40d006d4e818ef"
+  SKETCH: "Processing/ring_eye_sim_artnet_sender"
+  ARTIFACT_BASENAME: "ring_eye_sim"
+
+jobs:
+  export:
+    runs-on: macos-15            # Apple Silicon (arm64). macos-14 / macos-26 also arm64.
+    timeout-minutes: 30
+
+    steps:
+      - name: "1 · Checkout repository"
+        uses: actions/checkout@v4
+
+      - name: "2 · Resolve version label"
+        id: ver
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            LABEL="${GITHUB_REF_NAME}"          # e.g. v1.0.0  (tag push -> release)
+          else
+            LABEL="dev-${GITHUB_SHA::7}"        # e.g. dev-1a2b3c4  (manual test run)
+          fi
+          echo "label=${LABEL}" >> "$GITHUB_OUTPUT"
+          echo "Build label: ${LABEL}"
+
+      - name: "3 · Download Processing ${{ env.PROCESSING_VERSION }} (arm64 DMG)"
+        run: |
+          URL="https://github.com/processing/processing4/releases/download/processing-${PROCESSING_VERSION}/processing-${PROCESSING_VERSION}-macos-aarch64.dmg"
+          echo "Downloading: $URL"
+          curl -L --fail -o processing.dmg "$URL"
+          ls -lh processing.dmg
+
+      - name: "4 · Verify checksum & install Processing to /Applications"
+        run: |
+          echo "${PROCESSING_DMG_SHA256}  processing.dmg" | shasum -a 256 -c -
+          hdiutil attach processing.dmg -nobrowse -mountpoint /Volumes/Processing
+          cp -R "/Volumes/Processing/Processing.app" /Applications/
+          hdiutil detach /Volumes/Processing
+          test -x "/Applications/Processing.app/Contents/MacOS/Processing" && echo "Processing CLI present."
+
+      - name: "5 · Prepare sketchbook"
+        run: mkdir -p "$HOME/Documents/Processing/libraries"
+
+      - name: "6 · Download Video library (GStreamer arm64 natives)"
+        run: |
+          curl -L --fail -o video.zip \
+            "https://github.com/processing/processing-video/releases/download/latest/video.zip"
+          ls -lh video.zip
+
+      - name: "7 · Install libraries into sketchbook (Video + vendored)"
+        run: |
+          unzip -q video.zip -d "$HOME/Documents/Processing/libraries/"
+          cp -R ci/libraries/* "$HOME/Documents/Processing/libraries/"
+
+      - name: "8 · Verify installed libraries"
+        run: |
+          echo "Libraries in sketchbook:"
+          ls -1 "$HOME/Documents/Processing/libraries/"
+
+      - name: "9 · Export application (macos-aarch64)"
+        run: |
+          /Applications/Processing.app/Contents/MacOS/Processing cli \
+            --sketch="${GITHUB_WORKSPACE}/${SKETCH}" \
+            --output="${GITHUB_WORKSPACE}/${SKETCH}/build" \
+            --no-java \
+            --variant=macos-aarch64 \
+            --force \
+            --export
