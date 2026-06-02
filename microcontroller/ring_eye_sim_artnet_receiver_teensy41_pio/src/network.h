@@ -75,66 +75,116 @@ void assignMAC(byte *_mac)
     }
 }
 
+// --- P2: bounded network bring-up -------------------------------------------
+// Bring Ethernet up (static and/or DHCP, each time-bounded), then start the
+// Art-Net UDP listener. Order is governed by USE_STATIC_IP in config.h:
+//   defined   -> try static (fixedIP), fall back to DHCP, else STUCK
+//   undefined -> DHCP only, else STUCK
+// All timeouts/retries are config.h knobs. No indefinite block until STUCK.
+
+// Static IP is applied immediately regardless of cable, so "success" here means
+// the cable link actually came up within STATIC_LINK_TIMEOUT_MS.
+static bool netTryStatic(byte _mac[], byte _ip[])
+{
+    logln("NET: trying STATIC IP...");
+    Ethernet.begin(_mac, _ip);
+    unsigned long t0 = millis();
+    while (millis() - t0 < STATIC_LINK_TIMEOUT_MS)
+    {
+        if (Ethernet.linkStatus() == LinkON)
+            return true;
+        delay(50);
+    }
+    return false;
+}
+
+// Ethernet.begin(mac, timeout) returns 1 on lease / 0 on timeout -> bounded wait.
+static bool netTryDHCP(byte _mac[])
+{
+    for (int attempt = 1; attempt <= DHCP_RETRIES; attempt++)
+    {
+        log("NET: trying DHCP, attempt ");
+        logln(attempt);
+        if (Ethernet.begin(_mac, DHCP_TIMEOUT_MS) == 1 && Ethernet.linkStatus() == LinkON)
+            return true;
+    }
+    return false;
+}
+
 void inititateArtnet(byte _teensyMAC[], byte _fixedIP[])
 {
-    //   Begin art-net with the new MAC addr and the fixed IP
-    logln("Trying to begin ARTNET with Fixed IP and the above MAC addr...");
+    logln("\nNET: bringing up Ethernet + Art-Net...");
     if (ENABLE_OLED)
     {
         oled.clearDisplay();
         oled.setCursor(0, 0);
-        oled.println("Trying to begin \n\nARTNET ...");
+        oled.println("Bringing up\n\nNETWORK ...");
         oled.display();
     }
 
-    delay(2000);
+    bool ok = false;
+    const char *mode = "";
 
-    artnet.begin(_teensyMAC, _fixedIP);
-
-    delay(2000);
-    log("\nCURR IP ADDR: ");
-    logln(Ethernet.localIP());
-    log("ETH LINK STATUS: ");
-    logln(Ethernet.linkStatus());
-
-    /* if the fixed IP was assigned successfully, proceed; or else notify and block */
-    //  Since Artnet.begin(mac, ip) actually calls Ethernet.begin(mac, ip) underneath, we can check if our uC got the intended fixed IP address.
-    //  If so, proceed.
-    //  Or else, notify and block.
-    IPAddress currIP = Ethernet.localIP();
-
-    if (currIP[0] != 0 && currIP[1] != 0 && currIP[2] != 0 && currIP[3] != 0 && Ethernet.linkStatus() == 1)
+#ifdef USE_STATIC_IP
+    // Static first, then fall back to DHCP.
+    if (netTryStatic(_teensyMAC, _fixedIP))
     {
-        logln("\nARTNET INITIATED: OK!\n");
-        // Show on on-board LEDs
-        digitalWrite(LED_PIN, HIGH);
-        // Draw IP addr on the oled display
+        ok = true;
+        mode = "STATIC";
+    }
+    else if (netTryDHCP(_teensyMAC))
+    {
+        ok = true;
+        mode = "DHCP";
+    }
+#else
+    // DHCP only.
+    if (netTryDHCP(_teensyMAC))
+    {
+        ok = true;
+        mode = "DHCP";
+    }
+#endif
+
+    if (ok)
+    {
+        // Ethernet is up; just start the Art-Net UDP listener (port 6454).
+        artnet.begin();
+
+        log("\nNET OK [");
+        log(mode);
+        log("]  IP: ");
+        logln(Ethernet.localIP());
+
+        digitalWrite(LED_PIN, HIGH); // status LED: network up
+
         if (ENABLE_OLED)
         {
             oled.clearDisplay();
             oled.setCursor(0, 0);
-            oled.println("ARTNET: OK");
-            oled.println("FIXED IP ADDR:");
+            oled.print("NET OK: ");
+            oled.println(mode);
+            oled.println("Set sender -> IP:");
             oled.println(Ethernet.localIP());
             oled.display();
         }
     }
     else
     {
-        logln("\nARTNET INITIATED: FAILED [x]!\n");
-        // show on on board LEDs
+        // Terminal STUCK state: signal on the enabled strips and stop.
+        logln("\nNET FAILED: no link / no DHCP [x]");
         digitalWrite(LED_PIN, LOW);
-        // Show failed result on OLED
+
         if (ENABLE_OLED)
         {
             oled.clearDisplay();
             oled.setCursor(0, 0);
-            oled.println("ARTNET: FAAILED!");
-            oled.println("FIXED IP ADDR:");
-            oled.println(Ethernet.localIP());
+            oled.println("NETWORK FAILED");
+            oled.println("no link / no DHCP");
+            oled.println("check cable/router");
             oled.display();
         }
-        // also if failed, do not proceed, show red on all strips & block...
+
         for (byte i = 0; i < totalLEDStrips; i++)
         {
             if (stripsEnabled[i])
@@ -143,7 +193,6 @@ void inititateArtnet(byte _teensyMAC[], byte _fixedIP[])
                 strips[i].show();
             }
         }
-        // and block...
         while (true)
         {
             ;
