@@ -244,7 +244,7 @@ class UserInterface {
       .setColor(textColor);
 
     gammaField = cp5.addTextfield("gammaField")
-      .setPosition(chipX + 176, row2Y)
+      .setPosition(chipX + 200, row2Y)
       .setSize(40, elementHeight)
       .setAutoClear(false)                          // keep the text after Enter (default blanks it)
       .setText(nf(colorPipeline.gamma, 1, 2))
@@ -302,7 +302,7 @@ class UserInterface {
     portField.setCaptionLabel("PORT");
 
     subnetField = cp5.addTextfield("subnetField")
-      .setPosition(chipX + 128, row3Y)
+      .setPosition(chipX + 150, row3Y)
       .setSize(40, elementHeight)
       .setText(str(subnet))
       .setColor(textColor)
@@ -311,7 +311,7 @@ class UserInterface {
     subnetField.setCaptionLabel("SUBNET");
 
     dmxToggle = cp5.addToggle("dmxToggle")
-      .setPosition(chipX + 210, row3Y)
+      .setPosition(chipX + 200, row3Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -338,7 +338,7 @@ class UserInterface {
     mqttHostField.setCaptionLabel("BROKER IP");
 
     mqttPortField = cp5.addTextfield("mqttPortField")
-      .setPosition(chipX + 210, row4Y)
+      .setPosition(chipX + 200, row4Y)
       .setSize(48, elementHeight)
       .setText(str(mqttPort))
       .setColor(textColor)
