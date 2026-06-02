@@ -713,7 +713,7 @@ class UserInterface {
     // gap), and the line above the console.
     stroke(textColor, 55);
     strokeWeight(1);
-    line(x + padding, y + 182, x + width - padding, y + 182);          // shared | per-eye
+    line(x + padding, y + 188, x + width - padding, y + 188);          // shared | per-eye (nudged down to clear the MQTT row captions)
     line(x + padding, consoleY - 6, x + width - padding, consoleY - 6); // per-eye | console
     for (float yy = y + 190; yy < y + 266; yy += 7) {                  // dashed center split
       line(x + 480, yy, x + 480, min(yy + 3, y + 266));

@@ -152,6 +152,9 @@ void setup() {
   // both stay visible over whatever you're sampling underneath. macOS.
   surface.setAlwaysOnTop(true);
 
+  // Window title — display name only; the sketch folder/name is unchanged.
+  surface.setTitle("EYE SIMULATOR MIDDLEWARE");
+
   //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 
   // Two side-by-side containers from ONE decode: left = clone (x=0),
