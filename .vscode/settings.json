@@ -12,6 +12,8 @@
         "Joël",
         "keypress",
         "millis",
+        "mountpoint",
+        "nobrowse",
         "prereq",
         "println",
         "retarget",
