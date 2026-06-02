@@ -201,7 +201,7 @@ class UserInterface {
     // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
       .setPosition(chipX + 260, row1Y)
-      .setSize(108, elementHeight)
+      .setSize(160, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
       .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
       .snapToTickMarks(true)
@@ -244,7 +244,7 @@ class UserInterface {
       .setColor(textColor);
 
     gammaField = cp5.addTextfield("gammaField")
-      .setPosition(chipX + 200, row2Y)
+      .setPosition(chipX + 176, row2Y)
       .setSize(40, elementHeight)
       .setAutoClear(false)                          // keep the text after Enter (default blanks it)
       .setText(nf(colorPipeline.gamma, 1, 2))
@@ -302,7 +302,7 @@ class UserInterface {
     portField.setCaptionLabel("PORT");
 
     subnetField = cp5.addTextfield("subnetField")
-      .setPosition(chipX + 150, row3Y)
+      .setPosition(chipX + 128, row3Y)
       .setSize(40, elementHeight)
       .setText(str(subnet))
       .setColor(textColor)
@@ -311,7 +311,7 @@ class UserInterface {
     subnetField.setCaptionLabel("SUBNET");
 
     dmxToggle = cp5.addToggle("dmxToggle")
-      .setPosition(chipX + 260, row3Y)
+      .setPosition(chipX + 210, row3Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -338,7 +338,7 @@ class UserInterface {
     mqttHostField.setCaptionLabel("BROKER IP");
 
     mqttPortField = cp5.addTextfield("mqttPortField")
-      .setPosition(chipX + 260, row4Y)
+      .setPosition(chipX + 210, row4Y)
       .setSize(48, elementHeight)
       .setText(str(mqttPort))
       .setColor(textColor)
@@ -369,7 +369,7 @@ class UserInterface {
     int addrY     = flipY;          // UNIVERSE + IP sit to the right of the flips
     int lColX     = x + 12;
     int rColX     = x + 492;
-    int flipPitch = 72;
+    int flipPitch = 50;
 
     cp5.addTextlabel("leftEyeLabel")
       .setText("LEFT EYE - clone")
@@ -410,7 +410,7 @@ class UserInterface {
     lMirrorVToggle.setCaptionLabel("FLIP V");
 
     lUnivField = cp5.addTextfield("lUnivField")
-      .setPosition(lColX + 148, addrY)
+      .setPosition(lColX + 100, addrY)
       .setSize(44, elementHeight)
       .setText(str(leftContainer.universe))
       .setColor(textColor)
@@ -419,7 +419,7 @@ class UserInterface {
     lUnivField.setCaptionLabel("UNIVERSE");
 
     lIpField = cp5.addTextfield("lIpField")
-      .setPosition(lColX + 248, addrY)
+      .setPosition(lColX + 168, addrY)
       .setSize(150, elementHeight)
       .setText(leftContainer.targetIP)
       .setColor(textColor)
@@ -456,7 +456,7 @@ class UserInterface {
     rMirrorVToggle.setCaptionLabel("FLIP V");
 
     rUnivField = cp5.addTextfield("rUnivField")
-      .setPosition(rColX + 148, addrY)
+      .setPosition(rColX + 100, addrY)
       .setSize(44, elementHeight)
       .setText(str(rightContainer.universe))
       .setColor(textColor)
@@ -465,7 +465,7 @@ class UserInterface {
     rUnivField.setCaptionLabel("UNIVERSE");
 
     rIpField = cp5.addTextfield("rIpField")
-      .setPosition(rColX + 248, addrY)
+      .setPosition(rColX + 168, addrY)
       .setSize(150, elementHeight)
       .setText(rightContainer.targetIP)
       .setColor(textColor)
