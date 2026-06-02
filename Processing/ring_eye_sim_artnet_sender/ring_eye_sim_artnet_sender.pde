@@ -654,7 +654,7 @@ void saveConfig() {
   // publishes the ring layout to a local broker — no hardware is driven — so
   // restoring the last choice on launch is harmless and matches its default-ON.
   JSONObject m = new JSONObject();
-  m.setBoolean("enabled", enableMQTT);
+  m.setBoolean("disabled", enableMQTT);
   m.setString("host", mqttHost);
   m.setInt("port", mqttPort);
   root.setJSONObject("mqtt", m);
