@@ -200,7 +200,7 @@ class UserInterface {
     // N slider — shortened; caption to the RIGHT; fill always visible (accent
     // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
-      .setPosition(chipX + 260, row1Y)
+      .setPosition(chipX + 290, row1Y)
       .setSize(160, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
       .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
@@ -263,7 +263,7 @@ class UserInterface {
     gammaField.setCaptionLabel("GAMMA");
 
     modeButton = cp5.addButton("modeButton")
-      .setPosition(chipX + 260, row2Y)
+      .setPosition(chipX + 290, row2Y)
       .setSize(160, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
@@ -302,7 +302,7 @@ class UserInterface {
     portField.setCaptionLabel("PORT");
 
     subnetField = cp5.addTextfield("subnetField")
-      .setPosition(chipX + 150, row3Y)
+      .setPosition(chipX + 142, row3Y)   // left-aligned under the GRID toggle
       .setSize(40, elementHeight)
       .setText(str(subnet))
       .setColor(textColor)

@@ -147,6 +147,11 @@ void setup() {
     hint(DISABLE_TEXTURE_MIPMAPS);
   }
 
+  // Keep the main window floating above other apps — the SAME always-on-top tier
+  // as the screen-capture lens (ScreenGrabber's JFrame also sets alwaysOnTop), so
+  // both stay visible over whatever you're sampling underneath. macOS.
+  surface.setAlwaysOnTop(true);
+
   //frameRate(30);   // commented out while debugging the GStreamer video race (old project omits it). Don't delete — restore once stable.
 
   // Two side-by-side containers from ONE decode: left = clone (x=0),
