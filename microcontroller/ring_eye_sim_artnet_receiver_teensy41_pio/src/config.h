@@ -39,7 +39,7 @@ bool       stripsEnabled[totalLEDStrips] = {1, 1, 0, 0};
 
 // Per-port ring-zero calibration. Wired in a later phase; zeros = no change for now.
 // LED_OFFSET rotates each ring's start pixel; LED_REVERSE flips its CW/CCW direction.
-int  LED_OFFSET[totalLEDStrips]  = {0, 0, 0, 0};
+int  LED_OFFSET[totalLEDStrips]  = {-1, -1, 0, 0};
 bool LED_REVERSE[totalLEDStrips] = {0, 0, 0, 0};
 
 // ------------------------------------------------------------------------------------------------------------ //
