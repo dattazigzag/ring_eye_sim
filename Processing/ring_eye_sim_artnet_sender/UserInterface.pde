@@ -31,8 +31,7 @@ class UserInterface {
   // Colors
   color bgColor          = color(25);
   color textColor        = color(220);
-  color accentColor      = color(57, 184, 213);
-  color anthropicOrange  = color(217, 119, 87);   // ~#D97757 — Anthropic/Claude clay-orange (toggle ON state)
+  color accentColor      = color(217, 119, 87);   // ~#D97757 — Anthropic clay-orange: the single accent (sliders, toggles ON, "main" label, canvas marker)
   color disabledColor    = color(15);    // locked textfield bg (broadcast mode)
   color dimmedTextColor  = color(120);   // locked textfield text
 
@@ -110,7 +109,7 @@ class UserInterface {
   void setupControls() {
     cp5.setColorForeground(color(50));
     cp5.setColorBackground(color(50));
-    cp5.setColorActive(anthropicOrange);   // toggles light up brand-orange when ON; the two sliders override to cyan below
+    cp5.setColorActive(accentColor);   // toggles + sliders light up in the accent (Anthropic orange)
 
     int col1  = x + padding;            // gutter: row tags + console
     int chipX = x + 104;                // shared-band controls start after the tag gutter
@@ -201,7 +200,7 @@ class UserInterface {
     // N slider — shortened; caption to the RIGHT; fill always visible (accent
     // foreground) so it reads at the default value without hovering.
     nSlider = cp5.addSlider("nSlider")
-      .setPosition(chipX + 332, row1Y)
+      .setPosition(chipX + 260, row1Y)
       .setSize(108, elementHeight)
       .setRange(RingGrid.N_MIN, RingGrid.N_MAX)
       .setNumberOfTickMarks((RingGrid.N_MAX - RingGrid.N_MIN) / 2 + 1)
@@ -245,7 +244,7 @@ class UserInterface {
       .setColor(textColor);
 
     gammaField = cp5.addTextfield("gammaField")
-      .setPosition(chipX + 216, row2Y)
+      .setPosition(chipX + 200, row2Y)
       .setSize(40, elementHeight)
       .setAutoClear(false)                          // keep the text after Enter (default blanks it)
       .setText(nf(colorPipeline.gamma, 1, 2))
@@ -264,7 +263,7 @@ class UserInterface {
     gammaField.setCaptionLabel("GAMMA");
 
     modeButton = cp5.addButton("modeButton")
-      .setPosition(chipX + 286, row2Y)
+      .setPosition(chipX + 260, row2Y)
       .setSize(160, elementHeight)
       .setColorCaptionLabel(textColor)
       .onClick(new CallbackListener() {
@@ -312,7 +311,7 @@ class UserInterface {
     subnetField.setCaptionLabel("SUBNET");
 
     dmxToggle = cp5.addToggle("dmxToggle")
-      .setPosition(chipX + 240, row3Y)
+      .setPosition(chipX + 260, row3Y)
       .setSize(elementHeight, elementHeight)
       .setColorCaptionLabel(textColor)
       .onChange(new CallbackListener() {
@@ -339,7 +338,7 @@ class UserInterface {
     mqttHostField.setCaptionLabel("BROKER IP");
 
     mqttPortField = cp5.addTextfield("mqttPortField")
-      .setPosition(chipX + 200, row4Y)
+      .setPosition(chipX + 260, row4Y)
       .setSize(48, elementHeight)
       .setText(str(mqttPort))
       .setColor(textColor)
@@ -379,7 +378,7 @@ class UserInterface {
     cp5.addTextlabel("rightEyeLabel")
       .setText("RIGHT EYE - main")
       .setPosition(rColX, eyeHeadY)
-      .setColor(accentColor);          // cyan — ties to the on-canvas main marker
+      .setColor(accentColor);          // orange accent — ties to the on-canvas main marker
 
     // --- left eye (clone) ---
     lMirrorHToggle = cp5.addToggle("lMirrorHToggle")
@@ -741,5 +740,12 @@ class UserInterface {
     textAlign(LEFT, BOTTOM);
     textSize(12);
     text("FPS: " + nf(displayFps, 0, 1), x + padding, y + height - padding);
+
+    // Credit — bottom-right, mirrors the FPS readout on the left
+    fill(dimmedTextColor);
+    textAlign(RIGHT, BOTTOM);
+    textSize(11);
+    text("CREATED BY SAURABH DATTA (zigzag.is)", x + width - padding, y + height - padding);
+    textAlign(LEFT, BASELINE);   // restore Processing default for any later text()
   }
 }

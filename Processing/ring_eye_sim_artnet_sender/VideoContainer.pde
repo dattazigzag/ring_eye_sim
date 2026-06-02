@@ -69,14 +69,15 @@ class VideoContainer {
     if (isMain) drawMainMarker();
   }
 
-  // Cyan square so it's unambiguous which container is the main/source — the
-  // one to load against, and the one the tools/ tester mirrors.
+  // Orange square so it's unambiguous which container is the main/source — the
+  // one to load against, and the one the tools/ tester mirrors. Top-RIGHT inset,
+  // matching the "RIGHT EYE - main" label + sliders accent.
   void drawMainMarker() {
     pushStyle();
     noStroke();
-    fill(57, 184, 213);
+    fill(217, 119, 87);   // Anthropic clay-orange (= UI accentColor)
     rectMode(CORNER);
-    rect(canvas.x + MARKER_INSET, canvas.y + MARKER_INSET, MARKER_SIZE, MARKER_SIZE);
+    rect(canvas.x + canvas.width - MARKER_INSET - MARKER_SIZE, canvas.y + MARKER_INSET, MARKER_SIZE, MARKER_SIZE);
     popStyle();
   }
 
