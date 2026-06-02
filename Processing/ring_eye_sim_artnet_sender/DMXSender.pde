@@ -29,14 +29,14 @@ class DMXSender {
 
   void connect() {
     try {
-      if (useBroadcast) {
-        artnet.start();
-        log("[artnet] started in broadcast mode");
-      } else {
-        InetAddress address = InetAddress.getByName(targetIP);
-        artnet.start(address);
-        log("[artnet] started to target IP: " + targetIP);
-      }
+      // Always bind the local receiver on the default NIC via the no-arg start().
+      // The destination is set PER-PACKET in sendDMXData() -> unicastDmx(targetIP, ...),
+      // so we must NOT pass targetIP to start(): that argument is a *local* bind
+      // address, and binding to the Teensy's IP throws
+      // "BindException: Can't assign requested address".
+      artnet.start();
+      log(useBroadcast ? "[artnet] started (broadcast)"
+                       : "[artnet] started (unicast target " + targetIP + ")");
     }
     catch (Exception e) {
       logErr("[artnet] error connecting: " + e.getMessage());

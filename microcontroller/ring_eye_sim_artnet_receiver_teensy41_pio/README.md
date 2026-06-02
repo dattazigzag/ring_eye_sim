@@ -12,7 +12,11 @@ An ARTNET based multi single strip neopixel (WS2811) system; running on Teensy 4
 
 ![alt text](assets/164231916-6705f384-f0fe-4fe1-af7a-472f45dfab4b.png)
 
-2. [GERBER](https://github.com/dattazigzag/ring_eye_sim/blob/main/microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/assets/GERBERS/TeensyEthernetNeoPixel%20v21%20v444_2022-04-11.zip)
+Simplified wiring:
+
+![alt text](<assets/Untitled Sketch 3_bb.png>)
+
+1. [GERBER](https://github.com/dattazigzag/ring_eye_sim/blob/main/microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/assets/GERBERS/TeensyEthernetNeoPixel%20v21%20v444_2022-04-11.zip)
 
 ![alt text](assets/164235523-db50fcdd-3af4-470b-9f34-19a7222f135f.png)
 <img width="1678" alt="Screenshot 2022-05-09 at 11 23 33 AM" src="assets/167335416-20042251-5908-4861-87a3-e6d49e06f863.png">
