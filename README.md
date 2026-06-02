@@ -25,12 +25,12 @@ It's a hardware-in-the-loop design tool: drop in an animation, see exactly what 
 
 ```mermaid
 flowchart LR
-    SRC["Video file or screen lens"] --> MH["MediaHandler: single decode, shared frame"]
-    MH --> R["Right eye (main): mirror to 480x480"]
-    MH --> L["Left eye (clone): mirror to 480x480"]
-    R --> RS["Ring sample per LED"]
-    L --> LS["Ring sample per LED"]
-    RS --> CP["Color pipeline: gamma + brightness"]
+    SRC["Video file / <br>screen lens"] --> MH["MediaHandler:<br>single decode,shared frame"]
+    MH --> R["Right eye (main):<br>mirror to 480x480"]
+    MH --> L["Left eye (clone):<br>mirror to 480x480"]
+    R --> RS["Ring sample<br>(per LED)"]
+    L --> LS["Ring sample<br>(per LED)"]
+    RS --> CP["Color pipeline:<br>gamma + brightness<br>(Sampler)"]
     LS --> CP
     CP --> D0["Art-Net universe 0"] --> RX(("right ring / tester"))
     CP --> D1["Art-Net universe 1"] --> LX(("left ring / tester"))
