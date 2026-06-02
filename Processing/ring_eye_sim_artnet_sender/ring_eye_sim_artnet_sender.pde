@@ -162,9 +162,21 @@ void setup() {
   // Window title — display name only; the sketch folder/name is unchanged.
   surface.setTitle("EYE SIMULATOR MIDDLEWARE");
 
-  // Dock / Cmd-Tab icon (macOS) from data/icon.png, via the Java Taskbar API
-  // (reliable on mac; surface.setIcon() is a no-op there). dataPath() resolves
-  // both in the PDE and inside the exported .app bundle. The persistent .app
+  // Window icon — the small slot in the title bar (the empty box left of the
+  // title). P3D runs inside a JOGL/NEWT window (a toolkit window, not a stock
+  // Cocoa one), which DOES expose a title-bar icon. This is the WINDOW icon —
+  // a different target from the macOS Dock icon set just below.
+  try {
+    PImage winIcon = loadImage("icon.png");
+    if (winIcon != null) surface.setIcon(winIcon);
+  }
+  catch (Exception e) {
+    logWarn("[setup] window icon not set: " + e.getMessage());
+  }
+
+  // Dock / Cmd-Tab icon (macOS) from data/icon.png, via the Java Taskbar API.
+  // This targets the DOCK, which surface.setIcon() above does NOT — that one
+  // fills the title-bar window slot. dataPath() resolves both in the PDE and inside the exported .app bundle. The persistent .app
   // icon for releases is set separately in CI (.icns). Wrapped so a missing
   // file / unsupported platform never blocks startup.
   try {
