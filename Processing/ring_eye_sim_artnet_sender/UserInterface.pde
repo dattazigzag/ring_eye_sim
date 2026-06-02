@@ -32,6 +32,7 @@ class UserInterface {
   color bgColor          = color(25);
   color textColor        = color(220);
   color accentColor      = color(57, 184, 213);
+  color anthropicOrange  = color(217, 119, 87);   // ~#D97757 — Anthropic/Claude clay-orange (toggle ON state)
   color disabledColor    = color(15);    // locked textfield bg (broadcast mode)
   color dimmedTextColor  = color(120);   // locked textfield text
 
@@ -109,7 +110,7 @@ class UserInterface {
   void setupControls() {
     cp5.setColorForeground(color(50));
     cp5.setColorBackground(color(50));
-    cp5.setColorActive(accentColor);
+    cp5.setColorActive(anthropicOrange);   // toggles light up brand-orange when ON; the two sliders override to cyan below
 
     int col1  = x + padding;            // gutter: row tags + console
     int chipX = x + 104;                // shared-band controls start after the tag gutter
