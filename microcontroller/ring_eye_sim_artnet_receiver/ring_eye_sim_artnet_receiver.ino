@@ -1,23 +1,25 @@
 #include "config.h"
 #include <Adafruit_NeoPixel.h>
 #include <ArtnetWiFi.h>  // for chips that has wifi
-// #include <Artnet.h>     // can use both WiFi and Ethernet
-
-// LED stuff
-#define LED_PIN 2     // ESP32 GPIO14 connects to LED data input
-#define LED_COUNT 12  // 8x8 matrix = 64 LEDs
-Adafruit_NeoPixel pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
-
-void initNeoPixelLEDs() {
-  pixels.begin();             // Initialize NeoPixel strip
-  pixels.setBrightness(127);  // Set brightness (max 255)
-  pixels.clear();             // Set all pixels to 'off'
-}
+// #include <Artnet.h>   // can use both WiFi and Ethernet
 
 
+// WiFi Stuff
+const char *ssid = WiFi_SSID;
+const char *pwd = WiFi_PASS;
+
+const IPAddress ip(192, 168, 1, 229);  // Adjust based on your router's DNS Settings
+// const IPAddress ip(192, 168, 1, 202); // Adjust based on your router's DNS Settings; **but give the send setup a diff IP
+
+const IPAddress gateway(192, 168, 1, 1);        // Adjust based on your router's DNS Settings
+const IPAddress subnet_mask(255, 255, 255, 0);  // Adjust based on your router's DNS Settings
+
+
+
+// Helpers for indicating WiFi connection status on boot
 unsigned long prevWiFiBlinkMillis = 0;
 bool wifiLEDState = false;
-const int wifiLEDPin = 8;  // ESP32 C3 Super Mini on-board LED (works with inverted logic)
+const int wifiLEDPin = 8;  // ESP32 C3 Super Mini on-board LED
 
 void initWiFiLED() {
   pinMode(wifiLEDPin, OUTPUT);
@@ -29,35 +31,38 @@ void showWiFiConnecting() {
     prevWiFiBlinkMillis = currWiFiBlinkMillis;
     wifiLEDState = !wifiLEDState;
     if (wifiLEDState) {
-      digitalWrite(wifiLEDPin, LOW);  // ON (works with inverted logic for this board)
+      digitalWrite(wifiLEDPin, HIGH);  // ON
     } else {
-      digitalWrite(wifiLEDPin, HIGH);  // OFF (works with inverted logic for this board)
+      digitalWrite(wifiLEDPin, LOW);  // OFF
     }
   }
 }
 
-
 void showWiFiConnected() {
-  digitalWrite(wifiLEDPin, LOW);  // ON (works with inverted logic for this board)
+  digitalWrite(wifiLEDPin, HIGH);  // ON
   delay(2500);
-  digitalWrite(wifiLEDPin, HIGH);  // OFF (works with inverted logic for this board)
+  digitalWrite(wifiLEDPin, LOW);  // OFF
 }
 
-// WiFi& Artnet stuff
-const char *ssid = WiFi_SSID;
-const char *pwd = WiFi_PASS;
 
-// const IPAddress ip(192, 168, 1, 201); // Adjust based on your router's DNS Settings
-// // const IPAddress ip(192, 168, 1, 202); // Adjust based on your router's DNS Settings; **but give the send setup a diff IP
+// Artnet Stuff
+ArtnetWiFiReceiver artnet;
+uint16_t universe0 = 0;  // 0 - 32767
+uint8_t net = 0;         // 0 - 127
+uint8_t subnet = 0;      // 0 - 15
 
-// const IPAddress gateway(192, 168, 1, 1); // Adjust based on your router's DNS Settings
-// const IPAddress subnet_mask(255, 255, 255, 0);  // Adjust based on your router's DNS Settings
+// NeoPixel LED stuff
+#define LED_PIN 0     // ESP32 GPIO14 connects to LED data input
+#define LED_COUNT 12  // 8x8 matrix = 64 LEDs
+Adafruit_NeoPixel pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-// ArtnetWiFiReceiver artnet;
+void initNeoPixelLEDs() {
+  pixels.begin();             // Initialize NeoPixel strip
+  pixels.setBrightness(127);  // Set brightness (max 255)
+  pixels.clear();             // Set all pixels to 'off'
+}
 
-// uint16_t universe0 = 0;  // 0 - 32767
-// uint8_t net = 0;         // 0 - 127
-// uint8_t subnet = 0;      // 0 - 15
+
 
 void setup() {
   initWiFiLED();
