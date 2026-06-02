@@ -53,7 +53,7 @@ flowchart LR
 
 ### A · The released app (no Processing needed)
 
-You'll receive a **signed** `…-signed.zip` (see **Distributing** below for why signing matters on macOS 26).
+Download the latest zip from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** — CI signs it automatically (see **Distributing** for the why).
 
 1. **Java 17+ runtime** — required once (the app is native arm64 with no embedded Java):
    ```bash
@@ -73,18 +73,21 @@ You'll receive a **signed** `…-signed.zip` (see **Distributing** below for why
 
 ### Distributing (maintainer)
 
-macOS 26 **silently blocks LAN/Art-Net for unsigned — and even ad-hoc-signed — apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. CI therefore ships an **unsigned** zip, and you sign it once before handing it out (the private key stays on your Mac, never in CI).
+macOS 26 **silently blocks LAN/Art-Net for unsigned — and even ad-hoc-signed — apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. We use a **self-signed** identity (`RingEyeSim Local`) stored as encrypted repo secrets, so **CI signs every build automatically** — colleagues just download from Releases.
 
-**One-time setup** — create a self-signed code-signing identity:
-Keychain Access → Certificate Assistant → **Create a Certificate** → Name `RingEyeSim Local`, Identity Type **Self-Signed Root**, Certificate Type **Code Signing**; check **"Let me override defaults"** and on the **Extended Key Usage** page enable **Code Signing**, saving into the **login** keychain. Verify with `security find-identity -v` (it should list `RingEyeSim Local`).
+**Secrets** (already configured; rotate only if the cert changes):
+- `MACOS_CERT_P12_BASE64` — base64 of the identity exported as `.p12`
+- `MACOS_CERT_PASSWORD` — that `.p12`'s passphrase
 
-**Per release:**
+To regenerate: create a self-signed **Code Signing** identity named `RingEyeSim Local` (Keychain Access → Certificate Assistant, "Let me override defaults" → Extended Key Usage: Code Signing, **login** keychain), then:
 ```bash
-ci/sign-release.sh ~/Downloads/ring_eye_sim-v1.0.0-macos-aarch64.zip
+security export -k ~/Library/Keychains/login.keychain-db -t identities -f pkcs12 -o ringeyesim-ci.p12
+base64 -i ringeyesim-ci.p12 | pbcopy   # -> MACOS_CERT_P12_BASE64 ; set the password secret ; then rm the .p12
 ```
-Hand the resulting `…-signed.zip` to colleagues; they follow section A. Because the cert is self-signed, each colleague clicks through Gatekeeper (right-click → Open) and the Local Network prompt **once** per machine — that's the trade-off for skipping a paid Apple Developer ID.
 
-**Fallback** — if a colleague's Mac won't show the Local Network prompt at all, install the cert the script exported (`RingEyeSim-Local.cer`): double-click → add to **login** keychain → expand **Trust** → **Code Signing: Always Trust**, then relaunch the app.
+**What colleagues get:** because the cert is self-signed (not Apple-notarized), each Mac still clears Gatekeeper once (right-click → Open, or the `xattr` in section A) and clicks **Allow** on the Local Network prompt **once**. That's the trade-off for skipping a paid Apple Developer ID.
+
+**Local fallback** — to sign a `workflow_dispatch` artifact (those don't create a Release) or a hand-built app, `ci/sign-release.sh <zip-or-app>` signs with the same identity from your login keychain.
 
 ### B · From source in Processing
 
