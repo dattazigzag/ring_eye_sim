@@ -1,4 +1,4 @@
 .DS_Store
 contexts/
 data/config.json
-config.h
+microcontroller/ring_eye_sim_artnet_receiver_esp32c3/config.h
