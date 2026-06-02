@@ -5,9 +5,11 @@
 
 void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *data, IPAddress remoteIP)
 {
-    sendFrame = 1;
-    // Set brightness ofthe whole strip, for all the strips, if they are enabled
-    if (universe == 15)
+#ifdef MASTER_DIMMER_UNIVERSE
+    // Optional global master-dimmer universe (opt-in via config.h). data[0] sets hardware
+    // brightness on all enabled strips. OFF by default for the ring_eye_sim sender, whose
+    // pixels are already brightness-corrected (would otherwise double-dim).
+    if (universe == MASTER_DIMMER_UNIVERSE)
     {
         for (byte i = 0; i < totalLEDStrips; i++)
         {
@@ -17,76 +19,32 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *d
                 strips[i].show();
             }
         }
+        return;
     }
+#endif
 
-    // Store which universe has got in
-    if ((universe - startUniverse) < maxUniverses)
-    {
-        universesReceived[universe - startUniverse] = 1;
-    }
+    // Per-port routing: universe U drives exactly one port -> strips[U - startUniverse].
+    // One ring per port, one universe per ring. Universes we don't map (or whose port is
+    // disabled) are ignored. At <=170 LEDs/port each ring fits one universe, so no concat.
+    int s = (int)universe - startUniverse;
+    if (s < 0 || s >= totalLEDStrips || !stripsEnabled[s])
+        return;
 
-    for (int i = 0; i < maxUniverses; i++)
+    int leds = length / channelsPerLed;
+    for (int i = 0; i < leds && i < numLeds; i++)
     {
-        if (universesReceived[i] == 0)
+        if (channelsPerLed == 4)
         {
-            //      logln("Broke");
-            sendFrame = 0;
-            break;
+            // RGBW / GRBW
+            strips[s].setPixelColor(i, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
+        }
+        else
+        {
+            // RGB / GRB
+            strips[s].setPixelColor(i, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
         }
     }
-
-    for (int i = 0; i < length / channelsPerLed; i++)
-    {
-        int led = i + (universe - startUniverse) * (previousDataLength / channelsPerLed);
-
-        if (led < numLeds)
-        {
-            if (channelsPerLed == 4)
-            {
-                // -- For RGBW or GRBW type strips -- //
-                for (byte s = 0; s < totalLEDStrips; s++)
-                {
-                    // Go through all the led strips ..
-                    if (stripsEnabled[s])
-                    {
-                        // that are enabled..
-                        // and set the ccolor to incoming data
-                        strips[s].setPixelColor(led, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
-                    }
-                }
-            }
-            if (channelsPerLed == 3)
-            {
-                // -- For RGB or GRB type strips -- //
-                for (byte s = 0; s < totalLEDStrips; s++)
-                {
-                    // Go through all the led strips ..
-                    if (stripsEnabled[s])
-                    {
-                        // that are enabled..
-                        // and set the ccolor to incoming data
-                        strips[s].setPixelColor(led, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
-                    }
-                }
-            }
-        }
-    }
-    previousDataLength = length;
-
-    if (sendFrame)
-    {
-        for (byte s = 0; s < totalLEDStrips; s++)
-        {
-            // Go through all the led strips ..
-            if (stripsEnabled[s])
-            {
-                // that are enabled..
-                strips[s].show();
-            }
-        }
-        // Reset universeReceived to 0
-        memset(universesReceived, 0, maxUniverses);
-    }
+    strips[s].show();
 }
 
 void startArtnetMethods()
