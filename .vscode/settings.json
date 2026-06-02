@@ -4,15 +4,22 @@
         "artnet",
         "BCAST",
         "bildspur",
+        "blit",
+        "blits",
+        "Gähwiler",
         "Gähwiler's",
+        "javax",
         "Joël",
         "keypress",
         "millis",
+        "prereq",
         "println",
         "retarget",
         "retargeted",
+        "temurin",
         "textfields",
         "Textlabel",
-        "unicasts"
+        "unicasts",
+        "xattr"
     ]
 }
