@@ -60,7 +60,7 @@ void showWiFiConnected() {
 
 // ---- Art-Net --------------------------------------------------
 ArtnetWiFiReceiver artnet;
-uint16_t universe0 = 0;   // RIGHT eye. net0/subnet0/uni0 -> 15-bit address 0
+uint16_t universe = 0;   // RIGHT eye. net0/subnet0/uni0 -> 15-bit address 0
 uint8_t  net    = 0;      // 0 - 127  (must match sender)
 uint8_t  subnet = 0;      // 0 - 15   (must match sender "artnet.subnet")
 
@@ -139,10 +139,10 @@ void setup() {
   // Start Art-Net, listen for the RIGHT eye (universe 0).
   artnet.begin();
 
-  // Sender net/subnet are both 0, so universe0 (=0) is the full Art-Net
+  // Sender net/subnet are both 0, so universe (=0) is the full Art-Net
   // address. If you ever change the sender's subnet/net, switch to the explicit
-  // overload: artnet.subscribeArtDmxUniverse(net, subnet, universe0, cb);
-  artnet.subscribeArtDmxUniverse(universe0,
+  // overload: artnet.subscribeArtDmxUniverse(net, subnet, universe, cb);
+  artnet.subscribeArtDmxUniverse(universe,
     [&](const uint8_t *data, uint16_t size, const ArtDmxMetadata &metadata, const ArtNetRemoteInfo &remote) {
       int n = size / 3;                 // whole pixels present in this packet
       if (n > LED_COUNT) n = LED_COUNT;
