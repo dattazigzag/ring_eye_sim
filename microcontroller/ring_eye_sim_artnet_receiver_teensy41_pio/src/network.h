@@ -16,7 +16,7 @@ byte querryMAC[] = {0xE5, 0x2A, 0xFC, 0x41, 0x13, 0x2D}; // Dummy random MAC add
 byte teensyMAC[6] = {};                                  // Array to hold the actual MACaddr of Teensy 4.1 (To be used for starting Ethernet Interface later)
 
 Artnet artnet;
-const int startUniverse = 0;                           // CHANGE FOR YOUR SETUP most software this is 1, some software send out artnet first universe as 0.
+// startUniverse now lives in config.h (single source of truth).
 const int numberOfChannels = numLeds * channelsPerLed; // Total number of channels you want to receive over DMX
 
 const int maxUniverses = numberOfChannels / 512 + ((numberOfChannels % 512) ? 1 : 0); // Check if we got all universes...
