@@ -136,6 +136,17 @@ You don't start it manually — on launch the app **ensures a broker is running*
 
 ---
 
+## Hardware receivers
+
+Two physical receivers consume the **same U0 / U1 Art-Net stream** — pick whichever suits the install. The sender never changes; the receiver decides how universes map to rings.
+
+- **Teensy 4.1 — wired, both eyes on one board.** `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/` — NativeEthernet on the custom 4-port PCB, driving **both rings from a single node** (default U0 → Port 1 / right, U1 → Port 2 / left), with an OLED that shows the node IP to point the sender at. Per-port universe map, static-or-DHCP bring-up, color order, and ring calibration all live in its `src/config.h`. → [Teensy receiver README](microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/README.md#configuration-srcconfigh)
+- **ESP32-C3 — WiFi, one ring per board.** `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` — one universe per board (`universe = 0` or `1`), so you flash **two boards for two eyes**. WiFi credentials, fixed/DHCP IP, LED count and data pin are set in `config.h` (copied from `config.h.template`). → [ESP32-C3 receiver README](microcontroller/ring_eye_sim_artnet_receiver_esp32c3/README.md)
+
+The software [preview tester](#preview-tester-software-receiver) above mirrors the right eye when no hardware is on the bench.
+
+---
+
 ## Releasing (GitHub Actions)
 
 Builds run on a GitHub-hosted **macOS Apple-Silicon** runner — no local export required.
@@ -155,6 +166,8 @@ It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Si
 |---|---|
 | `Processing/ring_eye_sim_artnet_sender/` | the sender app (sketch source) |
 | `Processing/tools/tailored_dmx_receiver/` | software preview tester |
+| `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/` | hardware receiver — **Teensy 4.1**, wired, both eyes on one 4-port board (U0→Port 1, U1→Port 2) |
+| `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` | hardware receiver — **ESP32-C3**, WiFi, one ring per board (one universe each; two boards = two eyes) |
 | `ci/libraries/` | Processing libraries vendored for CI |
 | `ci/sign-release.sh` | sign a release locally before distributing (macOS) |
 | `ci/START_HERE.command` | helper bundled in the zip: de-quarantine + Java check + launch |
