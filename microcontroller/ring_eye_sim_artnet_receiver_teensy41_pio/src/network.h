@@ -16,7 +16,7 @@ byte querryMAC[] = {0xE5, 0x2A, 0xFC, 0x41, 0x13, 0x2D}; // Dummy random MAC add
 byte teensyMAC[6] = {};                                  // Array to hold the actual MACaddr of Teensy 4.1 (To be used for starting Ethernet Interface later)
 
 Artnet artnet;
-// startUniverse now lives in config.h (single source of truth).
+// Universe->port mapping (portUniverse[]) lives in config.h.
 // Per-port routing (artnet_methods.h) needs no universe-concat bookkeeping.
 
 void assignMAC(byte *_mac)

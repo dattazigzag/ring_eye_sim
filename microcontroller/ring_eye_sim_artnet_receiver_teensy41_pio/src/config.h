@@ -45,8 +45,12 @@ bool LED_REVERSE[totalLEDStrips] = {0, 0, 0, 0};
 // ------------------------------------------------------------------------------------------------------------ //
 // For Art-Net DMX library
 // ------------------------------------------------------------------------------------------------------------ //
-// Universe of the first port; port N receives universe (startUniverse + N). U0 -> Port 1, U1 -> Port 2, ...
-const int startUniverse = 0;
+// Explicit per-port universe map (absolute Art-Net universe numbers — no arithmetic).
+// Port N (strips[N]) listens to portUniverse[N]; only ports enabled above are driven.
+//   Default {0,1,2,3}: Port1<-U0, Port2<-U1, Port3<-U2, Port4<-U3.
+//   Example {2,3,0,0} with stripsEnabled {1,1,0,0}: sender on U2/U3 -> rings on Ports 1 & 2.
+//   Two ports mapped to the same universe mirror it.
+int portUniverse[totalLEDStrips] = {0, 1, 2, 3};
 
 // Optional global "master dimmer" universe (e.g. for Resolume / QLC+ / MadMapper master fader).
 // When defined, an Art-Net packet on this universe sets hardware brightness on all enabled strips

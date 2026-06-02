@@ -23,34 +23,36 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *d
     }
 #endif
 
-    // Per-port routing: universe U drives exactly one port -> strips[U - startUniverse].
-    // One ring per port, one universe per ring. Universes we don't map (or whose port is
-    // disabled) are ignored. At <=170 LEDs/port each ring fits one universe, so no concat.
-    int s = (int)universe - startUniverse;
-    if (s < 0 || s >= totalLEDStrips || !stripsEnabled[s])
-        return;
-
+    // Explicit per-port routing: drive every ENABLED port whose mapped universe
+    // (portUniverse[p], from config.h) matches this incoming universe. No arithmetic.
+    // A universe no port maps to is ignored; two ports mapped to it mirror it.
     int leds = length / channelsPerLed;
-    for (int i = 0; i < leds && i < numLeds; i++)
+    for (byte p = 0; p < totalLEDStrips; p++)
     {
-        // P4: map sender pixel i -> physical pixel on this port.
-        //   LED_REVERSE[s] flips winding (CW <-> CCW); LED_OFFSET[s] rotates the start pixel.
-        //   Defaults (false / 0) give phys == i -> identity, i.e. no calibration applied.
-        int phys = LED_REVERSE[s] ? (numLeds - 1 - i) : i;
-        phys = ((phys + LED_OFFSET[s]) % numLeds + numLeds) % numLeds;
+        if (!stripsEnabled[p] || portUniverse[p] != (int)universe)
+            continue;
 
-        if (channelsPerLed == 4)
+        for (int i = 0; i < leds && i < numLeds; i++)
         {
-            // RGBW / GRBW
-            strips[s].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
+            // P4 calibration: map sender pixel i -> physical pixel on THIS port.
+            //   LED_REVERSE[p] flips winding (CW <-> CCW); LED_OFFSET[p] rotates the start pixel.
+            //   Defaults (false / 0) give phys == i -> identity (no calibration applied).
+            int phys = LED_REVERSE[p] ? (numLeds - 1 - i) : i;
+            phys = ((phys + LED_OFFSET[p]) % numLeds + numLeds) % numLeds;
+
+            if (channelsPerLed == 4)
+            {
+                // RGBW / GRBW
+                strips[p].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
+            }
+            else
+            {
+                // RGB / GRB
+                strips[p].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
+            }
         }
-        else
-        {
-            // RGB / GRB
-            strips[s].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
-        }
+        strips[p].show();
     }
-    strips[s].show();
 }
 
 void startArtnetMethods()
