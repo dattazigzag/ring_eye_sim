@@ -33,15 +33,21 @@ void onDmxFrame(uint16_t universe, uint16_t length, uint8_t sequence, uint8_t *d
     int leds = length / channelsPerLed;
     for (int i = 0; i < leds && i < numLeds; i++)
     {
+        // P4: map sender pixel i -> physical pixel on this port.
+        //   LED_REVERSE[s] flips winding (CW <-> CCW); LED_OFFSET[s] rotates the start pixel.
+        //   Defaults (false / 0) give phys == i -> identity, i.e. no calibration applied.
+        int phys = LED_REVERSE[s] ? (numLeds - 1 - i) : i;
+        phys = ((phys + LED_OFFSET[s]) % numLeds + numLeds) % numLeds;
+
         if (channelsPerLed == 4)
         {
             // RGBW / GRBW
-            strips[s].setPixelColor(i, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
+            strips[s].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2], data[i * channelsPerLed + 3]);
         }
         else
         {
             // RGB / GRB
-            strips[s].setPixelColor(i, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
+            strips[s].setPixelColor(phys, data[i * channelsPerLed], data[i * channelsPerLed + 1], data[i * channelsPerLed + 2]);
         }
     }
     strips[s].show();

@@ -17,12 +17,7 @@ byte teensyMAC[6] = {};                                  // Array to hold the ac
 
 Artnet artnet;
 // startUniverse now lives in config.h (single source of truth).
-const int numberOfChannels = numLeds * channelsPerLed; // Total number of channels you want to receive over DMX
-
-const int maxUniverses = numberOfChannels / 512 + ((numberOfChannels % 512) ? 1 : 0); // Check if we got all universes...
-bool universesReceived[maxUniverses];
-bool sendFrame = 1;
-int previousDataLength = 0;
+// Per-port routing (artnet_methods.h) needs no universe-concat bookkeeping.
 
 void assignMAC(byte *_mac)
 {
