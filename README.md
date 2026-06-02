@@ -35,7 +35,7 @@ flowchart LR
     CP --> D0["Art-Net universe 0"] --> RX(("right ring / tester"))
     CP --> D1["Art-Net universe 1"] --> LX(("left ring / tester"))
     CP -. "layout via MQTT (retained)" .-> MQ["topic ring/config"]
-    MQ -. .-> RX
+    MQ -.-> RX
 ```
 
 **Key principles**
@@ -53,12 +53,12 @@ flowchart LR
 
 ### A · The released app (no Processing needed)
 
-1. Download the latest `ring_eye_sim-vX.Y.Z-macos-aarch64.zip` from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** and unzip it.
+1. Download the latest `.zip` from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** and unzip it.
 2. The app is **native Apple Silicon with no embedded Java**, so install a **Java 17+ runtime** once (any arm64 JDK):
    ```bash
    brew install --cask temurin@17
    ```
-3. Clear the macOS download quarantine, then launch:
+3. After  you unzip, navigate to the directory and clear the macOS download quarantine, then launch:
    ```bash
    xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app
    open ring_eye_sim_artnet_sender.app
@@ -100,7 +100,7 @@ Per-eye **flip H/V**, **universe**, and **IP**, plus color and Art-Net transport
 
 ---
 
-## MQTT broker
+## MQTT broker (Optional)
 
 Pixels travel over Art-Net; the preview tester also needs the ring **layout**, published over MQTT (topic `ring/config`, retained). Install a local broker:
 
