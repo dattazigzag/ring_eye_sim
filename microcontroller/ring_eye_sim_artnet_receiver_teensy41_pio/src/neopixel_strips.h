@@ -10,7 +10,7 @@ const int totalLEDStrips = 4;
 const int numLeds = ((ledsPerStrip * numLEDStripsPerStripSocket) <= 170) ? ledsPerStrip * numLEDStripsPerStripSocket : 170;
 
 const byte stripPins[totalLEDStrips] = {24, 25, 26, 27};
-bool stripsEnabled[totalLEDStrips] = {1, 1, 0, 0};
+bool stripsEnabled[totalLEDStrips] = {1, 0, 0, 0};
 
 #define NEO_GRB ((1 << 6) | (1 << 4) | (0 << 2) | (2)) ///< Transmit as G,R,B
 #define NEO_KHZ800 0x0000

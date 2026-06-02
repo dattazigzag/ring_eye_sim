@@ -4,7 +4,7 @@
  */
 
 #include <SPI.h>
-// # [TBD] This will compile for Teensy 4.1 and Tennsy 4.0 ([TBD]: Differentiate fromTeensy 4.0 as it doesn't have Native Ethernet)
+// # [TBD] This will compile for Teensy 4.1 and Teensy 4.0 ([TBD]: Differentiate fromTeensy 4.0 as it doesn't have Native Ethernet)
 //#if defined( __IMXRT1062__)
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
@@ -12,7 +12,7 @@
 //#endif
 #include <Artnet.h>
 
-byte querryMAC[] = {0xE5, 0x2A, 0xFC, 0x41, 0x13, 0x2D}; // Dummy random MAC addr used for retreiving Teensy 4.1's actual MAC addr
+byte querryMAC[] = {0xE5, 0x2A, 0xFC, 0x41, 0x13, 0x2D}; // Dummy random MAC addr used for retrieving Teensy 4.1's actual MAC addr
 byte teensyMAC[6] = {};                                  // Array to hold the actual MACaddr of Teensy 4.1 (To be used for starting Ethernet Interface later)
 
 Artnet artnet;
@@ -77,7 +77,6 @@ void assignMAC(byte *_mac)
 
 void inititateArtnet(byte _teensyMAC[], byte _fixedIP[])
 {
-    // void inititateArtnet() {
     //   Begin art-net with the new MAC addr and the fixed IP
     logln("Trying to begin ARTNET with Fixed IP and the above MAC addr...");
     if (ENABLE_OLED)
@@ -87,6 +86,7 @@ void inititateArtnet(byte _teensyMAC[], byte _fixedIP[])
         oled.println("Trying to begin \n\nARTNET ...");
         oled.display();
     }
+
     delay(2000);
 
     artnet.begin(_teensyMAC, _fixedIP);
@@ -97,7 +97,7 @@ void inititateArtnet(byte _teensyMAC[], byte _fixedIP[])
     log("ETH LINK STATUS: ");
     logln(Ethernet.linkStatus());
 
-    /* if the fixed IP was assigned successfully, proceed; or else notify and block*/
+    /* if the fixed IP was assigned successfully, proceed; or else notify and block */
     //  Since Artnet.begin(mac, ip) actually calls Ethernet.begin(mac, ip) underneath, we can check if our uC got the intended fixed IP address.
     //  If so, proceed.
     //  Or else, notify and block.

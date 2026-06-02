@@ -9,8 +9,8 @@
 #define loglnHex(x) Serial.println(x, HEX);
 #define logHex(x) Serial.print(x, HEX);
 #else
-#define log(x) x;
-#define logln(x) x;
-#define loglnHex(x) x;
-#define logHex(x) x;
+#define log(x) ((void)0)
+#define logln(x) ((void)0)
+#define loglnHex(x) ((void)0)
+#define logHex(x) ((void)0)
 #endif
