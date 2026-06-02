@@ -16,6 +16,8 @@ permissions:
 
 env:
   PROCESSING_VERSION: "4.5.2"
+  # GitHub release tag carries a build number, so it can't be derived from the version
+  PROCESSING_TAG: "processing-1313-4.5.2"
   # sha256 of processing-4.5.2-macos-aarch64.dmg (from the 4.5.2 release page)
   PROCESSING_DMG_SHA256: "27772a40761ae02ee470cdebb6a8e4a8265926b55771b7249a40d006d4e818ef"
   SKETCH: "Processing/ring_eye_sim_artnet_sender"
@@ -43,7 +45,7 @@ jobs:
 
       - name: "3 · Download Processing ${{ env.PROCESSING_VERSION }} (arm64 DMG)"
         run: |
-          URL="https://github.com/processing/processing4/releases/download/processing-${PROCESSING_VERSION}/processing-${PROCESSING_VERSION}-macos-aarch64.dmg"
+          URL="https://github.com/processing/processing4/releases/download/${PROCESSING_TAG}/processing-${PROCESSING_VERSION}-macos-aarch64.dmg"
           echo "Downloading: $URL"
           curl -L --fail -o processing.dmg "$URL"
           ls -lh processing.dmg
