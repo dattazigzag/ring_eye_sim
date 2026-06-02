@@ -110,28 +110,44 @@ jobs:
             echo "No data/icon.png committed — skipping app icon (build continues)."
             exit 0
           fi
+          # The exported bundle's Resources dir must exist before we write into
+          # it (a missing dir is one way the earlier iconutil path could fail).
+          mkdir -p "$APP/Contents/Resources"
+          ICNS="$APP/Contents/Resources/icon.icns"
+
+          # Primary: multi-resolution .icns via an .iconset + iconutil.
+          # Fallback: if iconutil balks (it failed on the runner before with
+          # "Failed to generate ICNS"), convert the 512px PNG straight to .icns
+          # with sips. Best-effort throughout: any failure logs a warning and
+          # continues, so a cosmetic icon never breaks the build.
           ICONSET="$RUNNER_TEMP/icon.iconset"
-          mkdir -p "$ICONSET"
-          # Standard slots from the 512px master. The 512@2x (1024) retina slot is
-          # omitted — source is 512px; macOS scales the 512 for that case. sips +
-          # iconutil ship with macOS runners.
-          sips -z 16 16   "$SRC" --out "$ICONSET/icon_16x16.png"      >/dev/null
-          sips -z 32 32   "$SRC" --out "$ICONSET/icon_16x16@2x.png"   >/dev/null
-          sips -z 32 32   "$SRC" --out "$ICONSET/icon_32x32.png"      >/dev/null
-          sips -z 64 64   "$SRC" --out "$ICONSET/icon_32x32@2x.png"   >/dev/null
-          sips -z 128 128 "$SRC" --out "$ICONSET/icon_128x128.png"    >/dev/null
-          sips -z 256 256 "$SRC" --out "$ICONSET/icon_128x128@2x.png" >/dev/null
-          sips -z 256 256 "$SRC" --out "$ICONSET/icon_256x256.png"    >/dev/null
-          sips -z 512 512 "$SRC" --out "$ICONSET/icon_256x256@2x.png" >/dev/null
-          sips -z 512 512 "$SRC" --out "$ICONSET/icon_512x512.png"    >/dev/null
-          iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/icon.icns"
-          # Point the bundle at our icon (Set if the key exists, else Add).
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$PLIST" \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string icon" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName icon" "$PLIST" \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string icon" "$PLIST"
-          echo "Embedded icon.icns (pre-signing):"
-          ls -l "$APP/Contents/Resources/" | grep -i icns || true
+          rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+          icns_ok=0
+          if sips -z 16 16   "$SRC" --out "$ICONSET/icon_16x16.png"      >/dev/null 2>&1 \
+          && sips -z 32 32   "$SRC" --out "$ICONSET/icon_16x16@2x.png"   >/dev/null 2>&1 \
+          && sips -z 32 32   "$SRC" --out "$ICONSET/icon_32x32.png"      >/dev/null 2>&1 \
+          && sips -z 64 64   "$SRC" --out "$ICONSET/icon_32x32@2x.png"   >/dev/null 2>&1 \
+          && sips -z 128 128 "$SRC" --out "$ICONSET/icon_128x128.png"    >/dev/null 2>&1 \
+          && sips -z 256 256 "$SRC" --out "$ICONSET/icon_128x128@2x.png" >/dev/null 2>&1 \
+          && sips -z 256 256 "$SRC" --out "$ICONSET/icon_256x256.png"    >/dev/null 2>&1 \
+          && sips -z 512 512 "$SRC" --out "$ICONSET/icon_256x256@2x.png" >/dev/null 2>&1 \
+          && sips -z 512 512 "$SRC" --out "$ICONSET/icon_512x512.png"    >/dev/null 2>&1 \
+          && iconutil -c icns "$ICONSET" -o "$ICNS" >/dev/null 2>&1; then
+            icns_ok=1; echo "icon.icns generated via iconutil (multi-res)"
+          elif sips -s format icns "$SRC" --out "$ICNS" >/dev/null 2>&1; then
+            icns_ok=1; echo "icon.icns generated via sips fallback"
+          fi
+
+          if [ "$icns_ok" = "1" ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile icon" "$PLIST" \
+              || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string icon" "$PLIST"
+            /usr/libexec/PlistBuddy -c "Set :CFBundleIconName icon" "$PLIST" \
+              || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string icon" "$PLIST"
+            echo "Embedded icon.icns (pre-signing):"
+            ls -l "$APP/Contents/Resources/" | grep -i icns || true
+          else
+            echo "WARNING: could not generate icon.icns — continuing without a custom icon."
+          fi
 
       - name: "9c · Sign the app (self-signed identity from repo secrets)"
         env:
