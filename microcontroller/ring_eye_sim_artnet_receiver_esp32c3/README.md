@@ -1,5 +1,8 @@
 # README
 
+> Super simplified wiring diagram
+![alt text](<assets/Untitled Sketch 2_bb.png>)
+
 ## Prerequisite
 
 ### Arduino IDE Setting:
