@@ -87,6 +87,22 @@ jobs:
             --force \
             --export
 
+      - name: "9b · Patch Info.plist (reverse-DNS id + Local Network prompt)"
+        run: |
+          APP="${GITHUB_WORKSPACE}/${SKETCH}/build/ring_eye_sim_artnet_sender.app"
+          PLIST="$APP/Contents/Info.plist"
+          # Raw export uses a bare bundle id; macOS TCC behaves better with reverse-DNS.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier is.zigzag.ring-eye-sim" "$PLIST"
+          # WITHOUT this key macOS 26 silently denies LAN/broadcast UDP -> no Art-Net.
+          /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 'Sends Art-Net DMX to LED ring receivers on the local network.'" "$PLIST" \
+            || /usr/libexec/PlistBuddy -c "Set :NSLocalNetworkUsageDescription 'Sends Art-Net DMX to LED ring receivers on the local network.'" "$PLIST"
+          echo "Patched:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Print :NSLocalNetworkUsageDescription" "$PLIST"
+          # NOTE: the zip below is UNSIGNED. macOS 26 needs a REAL signing identity
+          # (ad-hoc is NOT enough) before Art-Net works. Sign before distributing:
+          #   scripts/sign-release.sh <path-to-app-or-zip>
+
       - name: "10 · Package build into a zip"
         run: |
           ZIP="${ARTIFACT_BASENAME}-${{ steps.ver.outputs.label }}-macos-aarch64.zip"
