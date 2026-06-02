@@ -111,7 +111,7 @@ int       lastAdjustMillis       = -100000;   // far in the past = hidden at sta
 // sketch runs normally (Art-Net is unaffected) — see startMQTT()'s try/catch.
 MQTTClient    mqtt;
 boolean       mqttReady          = false;
-boolean       enableMQTT         = true;          // default on (UI toggle)
+boolean       enableMQTT         = false;          // default off (UI toggle)
 String        mqttHost           = "localhost";   // editable when the toggle is OFF
 int           mqttPort           = 1883;          // default MQTT port
 final String  MQTT_TOPIC_CONFIG  = "ring/config";
@@ -747,7 +747,7 @@ void loadConfig() {
   // toggle's initial setValue fires startMQTT/stopMQTT with the restored host.
   if (root.hasKey("mqtt")) {
     JSONObject m = root.getJSONObject("mqtt");
-    enableMQTT = m.getBoolean("enabled", enableMQTT);
+    enableMQTT = m.getBoolean("disabled", enableMQTT);
     mqttHost   = m.getString("host", mqttHost);
     mqttPort   = m.getInt("port", mqttPort);
   }
