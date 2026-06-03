@@ -2,7 +2,7 @@
 
 # Ring Eye Sim · Art-Net Sender
 
-**Drive two NeoPixel "eye" rings from a video or a live screen region — sampled, color-corrected, and streamed as Art-Net DMX.**
+**Drive two NeoPixel "eye" rings from a video or a live screen region, sampled, color-corrected, and streamed as Art-Net DMX.**
 
 [![Export macOS (Apple Silicon)](https://github.com/dattazigzag/ring_eye_sim/actions/workflows/export-macos.yml/badge.svg)](https://github.com/dattazigzag/ring_eye_sim/actions/workflows/export-macos.yml)
 ![Platform](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-black)
@@ -17,7 +17,7 @@
 
 A Processing sketch that turns any video clip or a draggable live screen-capture "lens" into pixel data for **two side-by-side ring displays**: a **right "eye" (main)** and a **left "eye" (clone)**. Each eye overlays a parametric NeoPixel-style ring, samples the color under every LED, runs it through a gamma / brightness pipeline, and streams the result as **Art-Net DMX** on its **own universe** so two physical rings can be driven independently and in perfect sync.
 
-It's a hardware-in-the-loop design tool: drop in an animation, see exactly what the ring will show, and send it straight to the lights — or to the bundled software **tester** when the hardware isn't on the bench.
+It's a hardware-in-the-loop design tool: drop in an animation, see exactly what the ring will show, and send it straight to the lights or to the bundled software **tester** when the hardware isn't on the bench.
 
 > Input is **either** a video file **or** a live screen region (mutually exclusive). Move / scale and play / pause are shared across both eyes; each eye can be flipped horizontally and/or vertically on its own.
 
@@ -40,11 +40,11 @@ flowchart LR
 
 **Key principles**
 
-- **Single decode, shared frame.** The video is decoded once; both eyes render the same frame — frame-perfect sync, half the work, one pipeline to babysit.
+- **Single decode, shared frame.** The video is decoded once; both eyes render the same frame, frame-perfect sync, half the work, one pipeline to babysit.
 - **Mirror is the only per-eye property.** H/V flip happens at draw time; sampling reads the framebuffer *after* the flip, so each ring follows its own mirror with no special-casing.
-- **Sampling = inscribed circle per cell.** Each LED averages the pixels under its disc — rotation-invariant and allocation-free.
+- **Sampling = inscribed circle per cell.** Each LED averages the pixels under its disc, rotation-invariant and allocation-free.
 - **Dual-universe Art-Net.** Right = universe 0, left = universe 1 (shared subnet); broadcast or per-eye unicast.
-- **MQTT is a side-channel, not the data path.** Pixels go over Art-Net; only the layout (`N`, universe, subnet — retained) is published on `ring/config` so a preview receiver mirrors geometry live. No broker → Art-Net still runs.
+- **MQTT is a side-channel, not the data path.** Pixels go over Art-Net; only the layout (`N`, universe, subnet, retained) is published on `ring/config` so a preview receiver mirrors geometry live. No broker → Art-Net still runs.
 - **Screen-capture lens.** A transparent, resizable, always-on-top window grabs any desktop region into the same pipeline.
 
 ---
@@ -53,7 +53,7 @@ flowchart LR
 
 ### A · The released app (no Processing needed)
 
-**One-time machine setup.** Run this once per Mac — it installs a Java 17+ runtime and the optional mosquitto broker, and makes sure mosquitto isn't left running as a background service (the app manages its own on `:1883`):
+**One-time machine setup.** Run this once per Mac, it installs a Java 17+ runtime and the optional mosquitto broker, and makes sure mosquitto isn't left running as a background service (the app manages its own on `:1883`):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/dattazigzag/ring_eye_sim/main/setup.sh | bash
 ```
@@ -81,11 +81,11 @@ open ring_eye_sim_artnet_sender.app                              # or just doubl
 
 ### Distributing (maintainer)
 
-macOS 26 **silently blocks LAN/Art-Net for unsigned — and even ad-hoc-signed — apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. I use a **self-signed** identity (`RingEyeSim Local`) stored as encrypted repo secrets, so **CI signs every build automatically**. _You just download from Releases, unzip and run `xattr ...` cmd on the app and grant permissions on the first run ..._
+macOS 26 **silently blocks LAN/Art-Net for unsigned, and even ad-hoc-signed, apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. I use a **self-signed** identity (`RingEyeSim Local`) stored as encrypted repo secrets, so **CI signs every build automatically**. _You just download from Releases, unzip and run `xattr ...` cmd on the app and grant permissions on the first run ..._
 
 **Secrets** (already configured; rotate only if the cert changes):
-- `MACOS_CERT_P12_BASE64` — base64 of the identity exported as `.p12`
-- `MACOS_CERT_PASSWORD` — that `.p12`'s passphrase
+- `MACOS_CERT_P12_BASE64`: base64 of the identity exported as `.p12`
+- `MACOS_CERT_PASSWORD`: that `.p12`'s passphrase
 
 To regenerate: create a self-signed **Code Signing** identity named `RingEyeSim Local` (Keychain Access → Certificate Assistant, "Let me override defaults" → Extended Key Usage: Code Signing, **login** keychain), then:
 ```bash
@@ -95,7 +95,7 @@ base64 -i ringeyesim-ci.p12 | pbcopy   # -> MACOS_CERT_P12_BASE64 ; set the pass
 
 **What colleagues get:** because the cert is self-signed (not Apple-notarized), each Mac still clears Gatekeeper once (the `xattr` step in section A) and clicks **Allow** on the Local Network prompt **once**. That's the trade-off for skipping a paid Apple Developer ID.
 
-**Local fallback** — to sign a `workflow_dispatch` artifact (those don't create a Release) or a hand-built app, `ci/sign-release.sh <zip-or-app>` signs with the same identity from your login keychain.
+**Local fallback**: to sign a `workflow_dispatch` artifact (those don't create a Release) or a hand-built app, `ci/sign-release.sh <zip-or-app>` signs with the same identity from your login keychain.
 
 ### B · From source in Processing
 
@@ -104,9 +104,9 @@ base64 -i ringeyesim-ci.p12 | pbcopy   # -> MACOS_CERT_P12_BASE64 ; set the pass
 3. Open `Processing/ring_eye_sim_artnet_sender/` and press **Run**.
 
 - **Renderer is P3D** (GPU). P3D windows don't accept drag-and-drop, so load a clip with the <kbd>O</kbd> key / **OPEN VIDEO** button.
-- **macOS Screen Recording** permission is needed for the screen-capture lens — enable Processing under Privacy & Security → Screen Recording, then restart it.
-- **High-DPI:** runs at `pixelDensity(2)` for a crisp display (sampling is density-aware). If a GStreamer video freeze or perf drop appears, re-enable `pixelDensity(1)` in `settings()` — the known-good fallback.
-- **MQTT broker:** see below — the sketch auto-launches mosquitto if installed, else skips MQTT (Art-Net unaffected).
+- **macOS Screen Recording** permission is needed for the screen-capture lens, enable Processing under Privacy & Security → Screen Recording, then restart it.
+- **High-DPI:** runs at `pixelDensity(2)` for a crisp display (sampling is density-aware). If a GStreamer video freeze or perf drop appears, re-enable `pixelDensity(1)` in `settings()`, the known-good fallback.
+- **MQTT broker:** see below, the sketch auto-launches mosquitto if installed, else skips MQTT (Art-Net unaffected).
 
 ---
 
@@ -134,11 +134,11 @@ Pixels travel over Art-Net; the preview tester also needs the ring **layout**, p
 brew install mosquitto
 ```
 
-You don't start it manually — on launch the app **ensures a broker is running**: it reuses one already on `localhost:1883`, or spawns mosquitto itself and shuts down only a broker it started. With mosquitto absent, MQTT is skipped and **Art-Net is never affected**.
+You don't start it manually: on launch the app **ensures a broker is running**: it reuses one already on `localhost:1883`, or spawns mosquitto itself and shuts down only a broker it started. With mosquitto absent, MQTT is skipped and **Art-Net is never affected**.
 
 ## Preview tester (software receiver)
 
-`Processing/tools/tailored_dmx_receiver/` renders a NeoPixel-ring twin of the **main (right)** eye — the exact post-gamma colors the hardware would receive — reading pixels over Art-Net and layout over MQTT. Use it to validate output with no hardware on the bench.
+`Processing/tools/tailored_dmx_receiver/` renders a NeoPixel-ring twin of the **main (right)** eye, the exact post-gamma colors the hardware would receive, reading pixels over Art-Net and layout over MQTT. Use it to validate output with no hardware on the bench.
 
 **Start order:** mosquitto → sender → tester.
 
@@ -146,10 +146,10 @@ You don't start it manually — on launch the app **ensures a broker is running*
 
 ## Hardware receivers
 
-Two physical receivers consume the **same U0 / U1 Art-Net stream** — pick whichever suits the install. The sender never changes; the receiver decides how universes map to rings.
+Two physical receivers consume the **same U0 / U1 Art-Net stream**, pick whichever suits the install. The sender never changes; the receiver decides how universes map to rings.
 
-- **Teensy 4.1 — wired, both eyes on one board.** `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/` — NativeEthernet on the custom 4-port PCB, driving **both rings from a single node** (default U0 → Port 1 / right, U1 → Port 2 / left), with an OLED that shows the node IP to point the sender at. Per-port universe map, static-or-DHCP bring-up, color order, and ring calibration all live in its `src/config.h`. → [Teensy receiver README](microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/README.md#configuration-srcconfigh)
-- **ESP32-C3 — WiFi, one ring per board.** `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` — one universe per board (`universe = 0` or `1`), so you flash **two boards for two eyes**. WiFi credentials, fixed/DHCP IP, LED count and data pin are set in `config.h` (copied from `config.h.template`). → [ESP32-C3 receiver README](microcontroller/ring_eye_sim_artnet_receiver_esp32c3/README.md)
+- **Teensy 4.1: wired, both eyes on one board.** `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/`, NativeEthernet on the custom 4-port PCB, driving **both rings from a single node** (default U0 → Port 1 / right, U1 → Port 2 / left), with an OLED that shows the node IP to point the sender at. Per-port universe map, static-or-DHCP bring-up, color order, and ring calibration all live in its `src/config.h`. → [Teensy receiver README](microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/README.md#configuration-srcconfigh)
+- **ESP32-C3: WiFi, one ring per board.** `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/`, one universe per board (`universe = 0` or `1`), so you flash **two boards for two eyes**. WiFi credentials, fixed/DHCP IP, LED count and data pin are set in `config.h` (copied from `config.h.template`). → [ESP32-C3 receiver README](microcontroller/ring_eye_sim_artnet_receiver_esp32c3/README.md)
 
 The software [preview tester](#preview-tester-software-receiver) above mirrors the right eye when no hardware is on the bench.
 
@@ -157,14 +157,14 @@ The software [preview tester](#preview-tester-software-receiver) above mirrors t
 
 ## Releasing (GitHub Actions)
 
-Builds run on a GitHub-hosted **macOS Apple-Silicon** runner — no local export required.
+Builds run on a GitHub-hosted **macOS Apple-Silicon** runner, no local export required.
 
-- **Cut a release** — push a version tag:
+- **Cut a release**: push a version tag:
   ```bash
   git tag v1.0.0 && git push origin v1.0.0
   ```
   The workflow exports the app and attaches `ring_eye_sim-v1.0.0-macos-aarch64.zip` to a new **GitHub Release** (notes auto-generated).
-- **Dry run** — run **Export macOS (Apple Silicon)** from the **Actions** tab (`workflow_dispatch`): same zip as a downloadable **artifact**, no release created.
+- **Dry run**: run **Export macOS (Apple Silicon)** from the **Actions** tab (`workflow_dispatch`): same zip as a downloadable **artifact**, no release created.
 
 It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Silicon GStreamer natives fresh, adds the vendored libraries in `ci/libraries/`, exports `--no-java --variant=macos-aarch64`, patches the bundle's `Info.plist` (reverse-DNS id + `NSLocalNetworkUsageDescription`), embeds the app icon, and **code-signs** it with the `RingEyeSim Local` identity from repo secrets. See **Distributing** and `.github/workflows/export-macos.yml`.
 
@@ -174,8 +174,8 @@ It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Si
 |---|---|
 | `Processing/ring_eye_sim_artnet_sender/` | the sender app (sketch source) |
 | `Processing/tools/tailored_dmx_receiver/` | software preview tester |
-| `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/` | hardware receiver — **Teensy 4.1**, wired, both eyes on one 4-port board (U0→Port 1, U1→Port 2) |
-| `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` | hardware receiver — **ESP32-C3**, WiFi, one ring per board (one universe each; two boards = two eyes) |
+| `microcontroller/ring_eye_sim_artnet_receiver_teensy41_pio/` | hardware receiver, **Teensy 4.1**, wired, both eyes on one 4-port board (U0→Port 1, U1→Port 2) |
+| `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` | hardware receiver, **ESP32-C3**, WiFi, one ring per board (one universe each; two boards = two eyes) |
 | `ci/libraries/` | Processing libraries vendored for CI |
 | `ci/sign-release.sh` | sign a release locally before distributing (macOS) |
 | `setup.sh` | one-time end-user machine prep (`curl … \| bash`): Java 17+ (latest LTS) + mosquitto via Homebrew |
