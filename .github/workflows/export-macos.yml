@@ -22,6 +22,10 @@ env:
   PROCESSING_DMG_SHA256: "27772a40761ae02ee470cdebb6a8e4a8265926b55771b7249a40d006d4e818ef"
   SKETCH: "Processing/ring_eye_sim_artnet_sender"
   ARTIFACT_BASENAME: "ring_eye_sim"
+  # Run the JS actions (checkout, upload-artifact) on Node 24 instead of the
+  # deprecated Node 20. GitHub forces this by default from 2026-06-16; setting it
+  # here just silences the deprecation warning early (no-op once that's default).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   export:

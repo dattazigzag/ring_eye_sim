@@ -171,7 +171,7 @@ It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Si
 | `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` | hardware receiver — **ESP32-C3**, WiFi, one ring per board (one universe each; two boards = two eyes) |
 | `ci/libraries/` | Processing libraries vendored for CI |
 | `ci/sign-release.sh` | sign a release locally before distributing (macOS) |
-| `setup.sh` | one-time end-user machine prep (`curl … \| bash`): Java 17 + mosquitto via Homebrew |
+| `setup.sh` | one-time end-user machine prep (`curl … \| bash`): Java 17+ (latest LTS) + mosquitto via Homebrew |
 | `.github/workflows/export-macos.yml` | export + release pipeline |
 
 ## License

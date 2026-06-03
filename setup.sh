@@ -77,9 +77,9 @@ case "$MAJOR" in (''|*[!0-9]*) MAJOR=0 ;; esac
 if [ "$MAJOR" -ge 17 ]; then
     print_success "Java $JV found"
 else
-    print_warning "No Java 17+ found — installing Temurin 17 (may ask for your password)..."
-    brew install --cask temurin@17
-    print_success "Temurin 17 installed"
+    print_warning "No Java 17+ found — installing the latest Temurin LTS (may ask for your password)..."
+    brew install --cask temurin
+    print_success "Temurin (latest LTS) installed"
 fi
 
 # ---- 3 · mosquitto (optional broker; install but DON'T autostart) -----------
