@@ -15,7 +15,7 @@
 
 ## What it is
 
-A Processing sketch that turns any video clip — or a draggable live screen-capture "lens" — into pixel data for **two side-by-side ring displays**: a **right "eye" (main)** and a **left "eye" (clone)**. Each eye overlays a parametric NeoPixel-style ring, samples the color under every LED, runs it through a gamma / brightness pipeline, and streams the result as **Art-Net DMX** on its **own universe** — so two physical rings can be driven independently and in perfect sync.
+A Processing sketch that turns any video clip or a draggable live screen-capture "lens" into pixel data for **two side-by-side ring displays**: a **right "eye" (main)** and a **left "eye" (clone)**. Each eye overlays a parametric NeoPixel-style ring, samples the color under every LED, runs it through a gamma / brightness pipeline, and streams the result as **Art-Net DMX** on its **own universe** so two physical rings can be driven independently and in perfect sync.
 
 It's a hardware-in-the-loop design tool: drop in an animation, see exactly what the ring will show, and send it straight to the lights — or to the bundled software **tester** when the hardware isn't on the bench.
 
@@ -64,17 +64,24 @@ Needs [Homebrew](https://brew.sh); if it's missing the script prints the officia
 xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app    # clear the download quarantine (once per download)
 open ring_eye_sim_artnet_sender.app                              # or just double-click the .app
 ```
-The `xattr` line is needed because the app is **self-signed, not Apple-notarized**, so macOS quarantines it on download. CI signs every build (see **Distributing** for why), but self-signing alone doesn't clear Gatekeeper.
+> [!Note]
+> The `xattr` line is needed because the app is **self-signed, not Apple-notarized**, so macOS quarantines it on download. CI signs every build (see **Distributing** for why), but self-signing alone doesn't clear Gatekeeper.
+  
 
-In the app, press **`A`** to enable Art-Net → click **Allow** on the **"find devices on your local network"** prompt. Required — without it macOS 26 silently blocks all DMX.
+> [!Important]
+> In the app, press **`A`** to enable Art-Net → click **Allow** on the **"find devices on your local network"** prompt. It is required as without it macOS silently blocks all DMX.
 
-*(Optional)* screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch.
+> [!Tip]
+> screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch.
 
-> **Apple Silicon only**, no Rosetta. Java isn't bundled (keeps it native + small), so a Java 17+ runtime must be present — `setup.sh` installs it.
+> [!Warning]
+> **Apple Silicon only**, no Rosetta. Java isn't bundled (keeps it native + small), so a Java 17+ runtime must be present. [setup.sh](setup.sh) installs it.
+
+---
 
 ### Distributing (maintainer)
 
-macOS 26 **silently blocks LAN/Art-Net for unsigned — and even ad-hoc-signed — apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. We use a **self-signed** identity (`RingEyeSim Local`) stored as encrypted repo secrets, so **CI signs every build automatically** — colleagues just download from Releases.
+macOS 26 **silently blocks LAN/Art-Net for unsigned — and even ad-hoc-signed — apps**; only a *real* signing identity makes macOS offer the Local Network "Allow" prompt. I use a **self-signed** identity (`RingEyeSim Local`) stored as encrypted repo secrets, so **CI signs every build automatically**. _You just download from Releases, unzip and run `xattr ...` cmd on the app and grant permissions on the first run ..._
 
 **Secrets** (already configured; rotate only if the cert changes):
 - `MACOS_CERT_P12_BASE64` — base64 of the identity exported as `.p12`
