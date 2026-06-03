@@ -47,6 +47,8 @@ flowchart LR
 - **MQTT is a side-channel, not the data path.** Pixels go over Art-Net; only the layout (`N`, universe, subnet, retained) is published on `ring/config` so a preview receiver mirrors geometry live. No broker → Art-Net still runs.
 - **Screen-capture lens.** A transparent, resizable, always-on-top window grabs any desktop region into the same pipeline.
 
+> **→ [Full pipeline deep-dive](PIPELINE.md)** — the two-container model, ring geometry, the sampling math, the DMX channel map, and the three receivers, walked through with diagrams.
+
 ---
 
 ## Run it
