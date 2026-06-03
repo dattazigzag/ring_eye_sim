@@ -6,6 +6,9 @@ An Art-Net → NeoPixel receiver for **two independent eye rings** on Teensy 4.1
 
 Pairs with the Processing `ring_eye_sim_artnet_sender`, which emits U0/U1 (broadcast or unicast to this node's IP on UDP 6454). Sender pixels are already gamma + brightness corrected, so this receiver does no color correction of its own — it writes the received bytes straight to the LEDs.
 
+> [!Important]
+> [Original Work](https://github.com/dattasaurabh82/ARTNET_TEENSY41_ETH_NEOPIXEL), _forked here and ported for neopixel rings (for our use case)_ 
+
 ---
 
 ## Hardware Setup
