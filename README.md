@@ -53,23 +53,24 @@ flowchart LR
 
 ### A · The released app (no Processing needed)
 
-Download the latest zip from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)** and unzip it. CI signs the app automatically (see **Distributing** for the why).
-
-**Easiest — use the bundled helper:**
-1. In the unzipped folder, **right-click `START HERE.command` → Open** (first time only; macOS asks once because the app is self-signed, not Apple-notarized).
-2. It clears the download quarantine, checks for Java 17+, and launches the app. If Java is missing it prints the one-line install.
-3. In the app, press **`A`** to enable Art-Net → click **Allow** on the **"find devices on your local network"** prompt. Required — without it macOS 26 silently blocks all DMX.
-
-**Manual equivalent** (if you'd rather use Terminal):
+**One-time machine setup.** Run this once per Mac — it installs a Java 17+ runtime and the optional mosquitto broker, and makes sure mosquitto isn't left running as a background service (the app manages its own on `:1883`):
 ```bash
-brew install --cask temurin@17                                   # once: Java 17+ runtime
-xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app    # clear quarantine
-open ring_eye_sim_artnet_sender.app
+curl -fsSL https://raw.githubusercontent.com/dattazigzag/ring_eye_sim/main/setup.sh | bash
 ```
+Needs [Homebrew](https://brew.sh); if it's missing the script prints the official one-liner and stops.
 
-*(Optional)* screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch. *(Optional)* live tester sync → `brew install mosquitto` (the app auto-starts it).
+**Then, for each release:** download the latest zip from **[Releases](https://github.com/dattazigzag/ring_eye_sim/releases)**, unzip it, and from that folder:
+```bash
+xattr -dr com.apple.quarantine ring_eye_sim_artnet_sender.app    # clear the download quarantine (once per download)
+open ring_eye_sim_artnet_sender.app                              # or just double-click the .app
+```
+The `xattr` line is needed because the app is **self-signed, not Apple-notarized**, so macOS quarantines it on download. CI signs every build (see **Distributing** for why), but self-signing alone doesn't clear Gatekeeper.
 
-> **Apple Silicon only**, no Rosetta. Java isn't bundled (keeps it native + small), so a Java 17+ runtime must be present.
+In the app, press **`A`** to enable Art-Net → click **Allow** on the **"find devices on your local network"** prompt. Required — without it macOS 26 silently blocks all DMX.
+
+*(Optional)* screen-capture lens → grant **Screen Recording** (System Settings → Privacy & Security → Screen Recording) and relaunch.
+
+> **Apple Silicon only**, no Rosetta. Java isn't bundled (keeps it native + small), so a Java 17+ runtime must be present — `setup.sh` installs it.
 
 ### Distributing (maintainer)
 
@@ -85,7 +86,7 @@ security export -k ~/Library/Keychains/login.keychain-db -t identities -f pkcs12
 base64 -i ringeyesim-ci.p12 | pbcopy   # -> MACOS_CERT_P12_BASE64 ; set the password secret ; then rm the .p12
 ```
 
-**What colleagues get:** because the cert is self-signed (not Apple-notarized), each Mac still clears Gatekeeper once (right-click → Open, or the `xattr` in section A) and clicks **Allow** on the Local Network prompt **once**. That's the trade-off for skipping a paid Apple Developer ID.
+**What colleagues get:** because the cert is self-signed (not Apple-notarized), each Mac still clears Gatekeeper once (the `xattr` step in section A) and clicks **Allow** on the Local Network prompt **once**. That's the trade-off for skipping a paid Apple Developer ID.
 
 **Local fallback** — to sign a `workflow_dispatch` artifact (those don't create a Release) or a hand-built app, `ci/sign-release.sh <zip-or-app>` signs with the same identity from your login keychain.
 
@@ -158,7 +159,7 @@ Builds run on a GitHub-hosted **macOS Apple-Silicon** runner — no local export
   The workflow exports the app and attaches `ring_eye_sim-v1.0.0-macos-aarch64.zip` to a new **GitHub Release** (notes auto-generated).
 - **Dry run** — run **Export macOS (Apple Silicon)** from the **Actions** tab (`workflow_dispatch`): same zip as a downloadable **artifact**, no release created.
 
-It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Silicon GStreamer natives fresh, adds the vendored libraries in `ci/libraries/`, exports `--no-java --variant=macos-aarch64`, patches the bundle's `Info.plist` (reverse-DNS id + `NSLocalNetworkUsageDescription`), **code-signs** it with the `RingEyeSim Local` identity from repo secrets, and bundles the `START HERE.command` helper. See **Distributing** and `.github/workflows/export-macos.yml`.
+It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Silicon GStreamer natives fresh, adds the vendored libraries in `ci/libraries/`, exports `--no-java --variant=macos-aarch64`, patches the bundle's `Info.plist` (reverse-DNS id + `NSLocalNetworkUsageDescription`), embeds the app icon, and **code-signs** it with the `RingEyeSim Local` identity from repo secrets. See **Distributing** and `.github/workflows/export-macos.yml`.
 
 ## Repo layout
 
@@ -170,7 +171,7 @@ It pins Processing 4.5.2 (checksum-verified), pulls the Video library's Apple-Si
 | `microcontroller/ring_eye_sim_artnet_receiver_esp32c3/` | hardware receiver — **ESP32-C3**, WiFi, one ring per board (one universe each; two boards = two eyes) |
 | `ci/libraries/` | Processing libraries vendored for CI |
 | `ci/sign-release.sh` | sign a release locally before distributing (macOS) |
-| `ci/START_HERE.command` | helper bundled in the zip: de-quarantine + Java check + launch |
+| `setup.sh` | one-time end-user machine prep (`curl … \| bash`): Java 17 + mosquitto via Homebrew |
 | `.github/workflows/export-macos.yml` | export + release pipeline |
 
 ## License
