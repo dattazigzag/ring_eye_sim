@@ -62,7 +62,7 @@ int portUniverse[totalLEDStrips] = {0, 1, 2, 3};
 //   USE_STATIC_IP defined  => try fixedIP first, then fall back to DHCP, then signal + stop.
 //   USE_STATIC_IP commented => DHCP only, then signal + stop.
 
-#define USE_STATIC_IP
+// #define USE_STATIC_IP
 #define STATIC_LINK_TIMEOUT_MS 8000  // ms to wait for cable link when using a static IP
 #define DHCP_TIMEOUT_MS        12000 // ms bounded wait per DHCP attempt
 #define DHCP_RETRIES           2     // DHCP attempts before giving up
